@@ -18,34 +18,22 @@
  * tjt@users.sourceforge.net
  */
 
-#ifndef WUTIL_H
-#define WUTIL_H
+#ifndef MENUSUPPORT_H
+#define MENUSUPPORT_H
+
+/* Support functions for menus */
 
 #include <stdlib.h>
 
-void setwrandom(int seed);
-int wrandom(int limit);
-void wrandom_sanity_check(void);
+struct menu_position {
+  int x, y;
+  int active;
+};
 
-void *walloc(size_t size);
-void wfree(void *);
-
-void wtoggle(int *);
-
-void init_trigs(void);
-int arcsinit(int luku);
-void calculate_difference(int x1, int y1, int x2, int y2, int *distance, int *angle = NULL);
-int squareroot(int number);
-
-extern int cosinit[361];
-extern int sinit[361];
-
-void findparameter_init(int argc, char **argv);
-int findparameter(const char *jono);
-const char *findparameter_arg(const char *jono);
-
-int printable_char(int ch);
-int check_strict_string(const char *s, int len);
-int check_printable_string(const char *s, int len);
+void menu_keys(int *exit_flag, int *help_flag);
+void menu_mouse(int *x, int *y, int *n1, int *n2,
+                const menu_position *positions = NULL);
+void wait_mouse_relase(int nokb = 0);
+void wait_press_and_release(void);
 
 #endif

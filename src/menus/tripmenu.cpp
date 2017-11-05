@@ -22,16 +22,23 @@
 
 #include "io/trip_io.h"
 #include "triplane.h"
-#include "tripmenu.h"
+#include "menus/tripmenu.h"
+#include "menus/menusupport.h"
 #include <SDL.h>
 #include <time.h>
 #include <string.h>
+#include <assert.h>
 #include "io/joystick.h"
 #include "io/sdl_compat.h"
+#include "io/network.h"
+#include "io/netclient.h"
 #include "util/wutil.h"
 #include "world/plane.h"
 #include "world/tripaudio.h"
 #include "settings.h"
+#ifdef _MSC_VER
+#include "io/network_win.h"
+#endif
 
 extern int miss_pl_x[16];
 extern int miss_pl_y[16];
@@ -44,11 +51,8 @@ int mission_headline_pixels;
 int aces_number_of_entries;
 int aces_score[MAX_PLAYERS_IN_ROSTER];
 
-
 #define CHARS_PER_LINE 70
 #define LINELENGHT 100
-
-sb_mod_file *national_mod = NULL;
 
 char rank_names[6][10] = {
     "2nd Lt.",
@@ -60,30 +64,6 @@ char rank_names[6][10] = {
 };
 
 /**************************** Functions ***************************************/
-
-void show_feat5(void) {
-    Bitmap *feat5;
-    feat5 = new Bitmap("FEAT5");
-    int n1 = 0, n2 = 0;
-    int x, y;
-
-    wait_mouse_relase();
-
-    feat5->info(&x, &y);
-
-    feat5->blit((320 - x) >> 1, (200 - y) >> 1);
-    do_all();
-
-    while (!(n1 || n2)) {
-        koords(&x, &y, &n1, &n2);
-
-    }
-
-
-    wait_mouse_relase();
-
-
-}
 
 int get_rank(int player) {
     int l, l2, l3;
@@ -582,20 +562,24 @@ void load_descriptions(int number) {
 int solo_player_menu(void) {
     char facenames[4][7] = { "GERFAC", "FINFAC", "ENGFAC", "JAPFAC" };
     char missionnames[4][7] = { "MISSI0", "MISSI1", "MISSI2", "MISSI3" };
-    char modnames[4][7] = { "mgerma", "mfinla", "mengla", "mjapan" };
 
     Bitmap *misboa = 0;
     Bitmap *misbak = 0;
     Bitmap *face = 0;
     Bitmap *mission = 0;
-    int flag = 0;
+    int flag = 0, exit_flag = 0;
     int l;
     int x, y, n1, n2;
 
     int highest_mission = 0;
 
+    menu_position positions[] = {
+        { 110, 32, 1 }, { 110, 32+27*1, 1 }, { 110, 32+27*2, 1 },
+        { 110, 32+27*3, 1 }, { 110, 32+27*4, 1 }, { 110, 32+27*5, 1 },
+        { 300, 170, 1 }, { 0, 0, -1 } };
+
     if (findparameter("-solomenumission")) {
-        sscanf(parametrit[findparameter("-solomenumission") + 1], "%d", &mission_re_fly);
+        sscanf(findparameter_arg("-solomenumission"), "%d", &mission_re_fly);
     }
 
     if (mission_re_fly == 999) {
@@ -607,6 +591,10 @@ int solo_player_menu(void) {
         if (roster[config.player_number[solo_country]].solo_mis_scores[solo_country][l])
             highest_mission = l + 1;
 
+    }
+
+    for (l = 0; l <= 5; l++) {
+        positions[l].active = (l <= highest_mission);
     }
 
     if (mission_re_fly != -1) {
@@ -631,25 +619,18 @@ int solo_player_menu(void) {
 
     if ((mission_re_fly == -1) && is_there_sound && config.music_on && !findparameter("-nomusic")) {
         sdl_stop_music();
-        national_mod = sdl_load_mod_file(modnames[solo_country]);
-        if (national_mod == NULL) {
-            printf("Error locating music.\n");
-            exit(1);
-
-        }
-
-        sdl_play_music(national_mod);
-
+        sdl_play_music(national_mod[solo_country]);
     }
 
     hiiri_to(75, 100);
 
     while (flag == 0) {
-        if (kbhit() && getch() == SDLK_ESCAPE) {
+        menu_keys(&exit_flag, NULL);
+        if (exit_flag) {
             flag = 2;
         }
 
-        koords(&x, &y, &n1, &n2);
+        menu_mouse(&x, &y, &n1, &n2, positions);
 
         cursor->blit(x - 10, y - 10);
         do_all_clear();
@@ -705,16 +686,12 @@ int solo_player_menu(void) {
     case 3:
         if ((mission_re_fly == -1) && is_there_sound && config.music_on && !findparameter("-nomusic")) {
             sdl_stop_music();
-            sdl_free_mod_file(national_mod);
-
         }
         return 2;
 
     case 2:
         if (is_there_sound && config.music_on && !findparameter("-nomusic")) {
             sdl_stop_music();
-            sdl_free_mod_file(national_mod);
-
         }
 
         return 0;
@@ -735,7 +712,6 @@ void roster_menu(void) {
     static int number = -1;
     int keysetmode = 0;
     int help_on = 0;
-    char ch;
     Bitmap *help;
     Bitmap *rosteri;
     Bitmap *buttl, *buttr;
@@ -747,6 +723,10 @@ void roster_menu(void) {
     Bitmap *ribbon[6];
     int l, l2, l3, l4;
     int rank;
+    menu_position positions[] = { 
+        { 282, 31, 0 /* !keysetmode */ }, { 264, 109, 0 /* !keysetmode */ },
+        { 58, 147, 1 }, { 141, 176, 0 /* keysetmode */ },
+        { 195, 178, 1 }, { 213, 178, 1 }, { 302, 194, 1 }, { 0, 0, -1 } };
 
     if (number == -1 && roster[0].pilotname[0])
         number = 0;
@@ -779,20 +759,12 @@ void roster_menu(void) {
     hiiri_to(264, 109);
 
     while (!exit_flag) {
-        if (kbhit()) {
-            if (!(ch = getch())) {
-                ch = getch();
-                if (ch == 59)
-                    wtoggle(&help_on);
+        menu_keys(&exit_flag, &help_on);
 
-            } else {
-                if (ch == 27)
-                    exit_flag = 1;
-            }
-
-        }
-
-        koords(&x, &y, &n1, &n2);
+        positions[0].active = !keysetmode;
+        positions[1].active = !keysetmode;
+        positions[3].active = keysetmode;
+        menu_mouse(&x, &y, &n1, &n2, positions);
 
         if (number != -1) {
             if (!keysetmode) {
@@ -1031,40 +1003,40 @@ void roster_menu(void) {
                 frost->printf(125, 100, "Key for upward turn [%s]", SDL_GetKeyName(roster[number].up));
                 do_all();
 
-                roster[number].up = select_key(number, roster[number].up);
+                roster[number].up = select_key(roster[number].up);
 
                 rosteri->blit(0, 0);
                 frost->printf(125, 100, "Key for downward turn [%s]", SDL_GetKeyName(roster[number].down));
                 do_all();
 
-                roster[number].down = select_key(number, roster[number].down);
+                roster[number].down = select_key(roster[number].down);
 
                 rosteri->blit(0, 0);
                 frost->printf(125, 100, "Key for roll [%s]", SDL_GetKeyName(roster[number].roll));
                 do_all();
 
-                roster[number].roll = select_key(number, roster[number].roll);
+                roster[number].roll = select_key(roster[number].roll);
 
                 rosteri->blit(0, 0);
 
                 frost->printf(125, 100, "Key for engine power [%s]", SDL_GetKeyName(roster[number].power));
                 do_all();
 
-                roster[number].power = select_key(number, roster[number].power);
+                roster[number].power = select_key(roster[number].power);
 
                 rosteri->blit(0, 0);
 
                 frost->printf(125, 100, "Key for bomb drop [%s]", SDL_GetKeyName(roster[number].bombs));
                 do_all();
 
-                roster[number].bombs = select_key(number, roster[number].bombs);
+                roster[number].bombs = select_key(roster[number].bombs);
 
                 rosteri->blit(0, 0);
 
                 frost->printf(125, 100, "Key for guns [%s]", SDL_GetKeyName(roster[number].guns));
                 do_all();
 
-                roster[number].guns = select_key(number, roster[number].guns);
+                roster[number].guns = select_key(roster[number].guns);
                 break;
 
             case 5:
@@ -1165,6 +1137,43 @@ void options_menu(void) {
     Bitmap *opt1, *opt2;
     int optimode = 0;
     int l;
+    menu_position positions01[] = { /* for optimode 0 and 1 */
+        { 252, 29, 1 },
+        { 217, 64, 1 }, { 227, 64, 1 }, { 252, 64, 1 },
+        { 217, 74, 1 }, { 227, 74, 1 },
+        { 217, 84, 1 }, { 227, 84, 1 },
+        { 217, 94, 1 }, { 227, 94, 1 },
+        { 217, 104, 1 }, { 227, 104, 1 }, { 252, 104, 1 },
+        { 217, 114, 1 }, { 227, 114, 1 },
+        { 217, 124, 0 /* optimode==1 */ }, { 227, 124, 0 /* optimode==1 */ },
+        { 217, 134, 1 }, { 227, 134, 1 },
+        { 252, 134, 1 }, { 284, 172, 1 }, { 0, 0, -1 } };
+    menu_position positions2[] = { /* for optimode 2 */
+        { 252, 29, 1 },
+        { 217, 64, 1 }, { 227, 64, 1 }, { 252, 64, 1 },
+        { 217, 74, 1 }, { 227, 74, 1 },
+        { 252, 104, 1 }, { 252, 134, 1 }, { 284, 172, 1 },
+        { 0, 0, -1 } };
+    menu_position positions3[] = { /* for optimode 3 */
+        { 37, 14, 0 /* config.all_planes_are!=0 */ },
+        { 252, 29, 1 },
+        { 37, 35, 0 /* config.all_planes_are!=0 */ },
+        { 37, 56, 0 /* config.all_planes_are!=0 */ },
+        { 217, 64, 1 }, { 227, 64, 1 }, { 252, 64, 1 },
+        { 217, 74, 1 }, { 227, 74, 1 },
+        { 37, 77, 0 /* config.all_planes_are!=0 */ },
+        { 217, 84, 1 }, { 227, 84, 1 },
+        { 222, 94, 1 },
+        { 217, 104, 1 }, { 227, 104, 1 }, { 252, 104, 1 },
+        { 37, 114, 0 /* config.alliance!=0 */ },
+        { 217, 114, 1 }, { 227, 114, 1 },
+        { 217, 124, 1 }, { 227, 124, 1 },
+        { 217, 134, 1 }, { 227, 134, 1 }, { 252, 134, 1 },
+        { 37, 144, 0 /* config.alliance!=0 */ },
+        { 217, 144, 1 }, { 227, 144, 1 },
+        { 217, 154, 1 }, { 227, 154, 1 },
+        { 37, 172, 0 /* config.alliance!=0 */ },
+        { 284, 172, 1 }, { 0, 0, -1 } };
 
     char selitykset[4][80] = {
         "This form has questions about your vision.",
@@ -1184,11 +1193,26 @@ void options_menu(void) {
     opt2 = new Bitmap("OPT2");
 
     while (!exit_flag) {
-        if (kbhit())
-            if (getch() == 27)
-                exit_flag = 1;
+        menu_keys(&exit_flag, NULL);
 
-        koords(&x, &y, &n1, &n2);
+        if (optimode == 0) {
+            positions01[15].active = 0;
+            positions01[16].active = 0;
+        } else if (optimode == 1) {
+            positions01[15].active = 1;
+            positions01[16].active = 1;
+        } else if (optimode == 3) {
+            positions3[0].active = (config.all_planes_are != 0);
+            positions3[2].active = (config.all_planes_are != 0);
+            positions3[3].active = (config.all_planes_are != 0);
+            positions3[9].active = (config.all_planes_are != 0);
+            positions3[16].active = (config.alliance != 0);
+            positions3[24].active = (config.alliance != 0);
+            positions3[29].active = (config.alliance != 0);
+        }
+        menu_mouse(&x, &y, &n1, &n2,
+                   (optimode == 2) ? positions2 :
+                   (optimode == 3) ? positions3 : positions01);
         optionme->blit(0, 0);
         kohta[3 - optimode]->blit(248, 13);
         frost->printf(73, 43, "%s", selitykset[optimode]);
@@ -1916,6 +1940,11 @@ void transfer_menu(void) {
     Bitmap *color_bites[6];
     Bitmap *descs[6];
     int l;
+    menu_position positions[] = { 
+        { 90, 20, 1 },
+        { 78, 70, 1 }, { 78+1*80, 70, 1 }, { 78+2*80, 70, 1 },
+        { 78, 70+50, 1 }, { 78+1*80, 70+50, 1 }, { 78+2*80, 70+50, 1 },
+        { 0, 0, -1 } };
 
     optionme = new Bitmap("TRANS2");
 
@@ -1939,11 +1968,9 @@ void transfer_menu(void) {
     optionme = new Bitmap("TRANSF");
 
     while (!exit_flag) {
-        if (kbhit())
-            if (getch() == 27)
-                exit_flag = 1;
+        menu_keys(&exit_flag, NULL);
 
-        koords(&x, &y, &n1, &n2);
+        menu_mouse(&x, &y, &n1, &n2, positions);
         optionme->blit(0, 0);
 
         color_bites[config.current_multilevel]->blit(39 + config.current_multilevel * 80 - (config.current_multilevel / 3) * 240,
@@ -2032,11 +2059,15 @@ static void joystick_setup(int joy, Bitmap * controlme) {
     controlme->blit(0, 0);
     frost->printf(54, 93, "Keep joystick idle and press");
     frost->printf(54, 100, "Space (Esc=use old settings)");
-    do_all();
     do {
+        do_all();
+        if (!kbhit()) {
+            c = 0;
+            continue;
+        }
         c = getch();
-    } while (c != 27 && c != ' ');
-    if (c == 27)
+    } while (c != SDLK_ESCAPE && c != ' ');
+    if (c == SDLK_ESCAPE)
         goto joystick_setup_exit;
 
     save_axis_state(idle, joy);
@@ -2045,11 +2076,15 @@ static void joystick_setup(int joy, Bitmap * controlme) {
         controlme->blit(0, 0);
         frost->printf(54, 93, "Do '%s' on joystick and", acts[i].prompt);
         frost->printf(54, 100, "press Space or D=disable this");
-        do_all();
         do {
+            do_all();
+            if (!kbhit()) {
+                c = 0;
+                continue;
+            }
             c = getch();
-        } while (c != 27 && c != ' ' && c != 'd' && c != 'D');
-        if (c == 27) {
+        } while (c != SDLK_ESCAPE && c != ' ' && c != 'd' && c != 'D');
+        if (c == SDLK_ESCAPE) {
             goto joystick_setup_exit;
         } else if (c == 'd' || c == 'D') {
             set_disabled_action(acts[i].act);
@@ -2069,7 +2104,6 @@ static void joystick_setup(int joy, Bitmap * controlme) {
 }
 
 void controls_menu(void) {
-    char ch;
     int help_on = 0;
     int exit_flag = 0;
     int x, y, n1, n2;
@@ -2078,6 +2112,10 @@ void controls_menu(void) {
     Bitmap *napp[4];
     Bitmap *help;
     int active = 0;
+    menu_position positions[] = {
+        { 80, 15, 1 },
+        { 17, 28, 1 }, { 44, 28, 1 }, { 17, 51, 1 }, { 44, 51, 1 },
+        { 160, 65, 1 }, { 266, 65, 1 }, { 153, 130, 1 }, { 0, 0, -1 } };
 
     controlme = new Bitmap("NAPPIS");
     napp[0] = new Bitmap("NAPPRE");
@@ -2089,20 +2127,9 @@ void controls_menu(void) {
 
 
     while (!exit_flag) {
-        if (kbhit()) {
-            if (!(ch = getch())) {
-                ch = getch();
-                if (ch == 59)
-                    wtoggle(&help_on);
+        menu_keys(&exit_flag, &help_on);
 
-            } else {
-                if (ch == 27)
-                    exit_flag = 1;
-            }
-
-        }
-
-        koords(&x, &y, &n1, &n2);
+        menu_mouse(&x, &y, &n1, &n2, positions);
         controlme->blit(0, 0);
 
         napp[active]->blit((active % 2) * 27 + 10, (active / 2) * 23 + 22);
@@ -2222,42 +2249,42 @@ void controls_menu(void) {
                 frost->printf(56, 97, "Key for upward turn [%s]", SDL_GetKeyName(player_keys[active].up));
                 do_all();
 
-                player_keys[active].up = select_key(active, player_keys[active].up);
+                player_keys[active].up = select_key(player_keys[active].up);
 
                 controlme->blit(0, 0);
                 napp[active]->blit((active % 2) * 27 + 10, (active / 2) * 23 + 22);
                 frost->printf(56, 97, "Key for downward turn [%s]", SDL_GetKeyName(player_keys[active].down));
                 do_all();
 
-                player_keys[active].down = select_key(active, player_keys[active].down);
+                player_keys[active].down = select_key(player_keys[active].down);
 
                 controlme->blit(0, 0);
                 napp[active]->blit((active % 2) * 27 + 10, (active / 2) * 23 + 22);
                 frost->printf(56, 97, "Key for roll [%s]", SDL_GetKeyName(player_keys[active].roll));
                 do_all();
 
-                player_keys[active].roll = select_key(active, player_keys[active].roll);
+                player_keys[active].roll = select_key(player_keys[active].roll);
 
                 controlme->blit(0, 0);
                 napp[active]->blit((active % 2) * 27 + 10, (active / 2) * 23 + 22);
                 frost->printf(56, 97, "Key for engine power [%s]", SDL_GetKeyName(player_keys[active].power));
                 do_all();
 
-                player_keys[active].power = select_key(active, player_keys[active].power);
+                player_keys[active].power = select_key(player_keys[active].power);
 
                 controlme->blit(0, 0);
                 napp[active]->blit((active % 2) * 27 + 10, (active / 2) * 23 + 22);
                 frost->printf(56, 97, "Key for bomb drop [%s]", SDL_GetKeyName(player_keys[active].bombs));
                 do_all();
 
-                player_keys[active].bombs = select_key(active, player_keys[active].bombs);
+                player_keys[active].bombs = select_key(player_keys[active].bombs);
 
                 controlme->blit(0, 0);
                 napp[active]->blit((active % 2) * 27 + 10, (active / 2) * 23 + 22);
                 frost->printf(56, 97, "Key for guns [%s]", SDL_GetKeyName(player_keys[active].guns));
                 do_all();
 
-                player_keys[active].guns = select_key(active, player_keys[active].guns);
+                player_keys[active].guns = select_key(player_keys[active].guns);
 
                 save_keyset();
                 break;
@@ -2303,6 +2330,40 @@ void controls_menu(void) {
 
 }
 
+/* Guess an appropriate roster entry for network client clientname */
+static void set_roster_from_clientname(int playernum,
+                                       const char *clientname) {
+    int i, l;
+
+    if (clientname[0] == '\0') {
+        if (config.player_type[playernum] == 3)
+            config.player_number[playernum] = -2;
+        return;
+    }
+
+    for (i = 0; i < MAX_PLAYERS_IN_ROSTER; i++) {
+        if (roster[i].pilotname[0] == '\0')
+            break;
+
+        if (strcmp(clientname, roster[i].pilotname) == 0) {
+            /* clientname found at i; check that it is not already used */
+            for (l = 0; l < 4; l++) {
+                if (l == playernum)
+                    continue;
+                if (config.player_number[l] == i)
+                    break;
+            }
+            if (l == 4) {
+                config.player_number[playernum] = i;
+                return;
+            }
+        }
+    }
+
+    /* clientname was not found */
+    if (config.player_type[playernum] == 3)
+        config.player_number[playernum] = -2;
+}
 
 void assign_menu(void) {
     int exit_flag = 0;
@@ -2317,7 +2378,26 @@ void assign_menu(void) {
     int lym[4] = { 0, 11, 24, 36 };
     int response;
     int help_on = 0;
-    char ch;
+    char clientname[4][21] = { "", "", "", "" };
+    char tmpname[21] = "";
+    char unallocated[200] = "";
+    bool autoallocate[4] = { true, true, true, true };
+    menu_position positions[] = {
+        /* those with active=0 are for network_is_active() */
+        { 100, 15, 1 },
+        { 32, 48+lym[0], 1 }, { 185, 48+lym[0], 1 },
+        { 32, 48+lym[1], 1 }, { 185, 48+lym[1], 1 },
+        { 32, 48+lym[2], 1 }, { 138, 48+lym[2], 0 }, { 147, 48+lym[2], 0 },
+        { 185, 48+lym[2], 1 }, { 291, 48+lym[2], 0 }, { 300, 48+lym[2], 0 },
+        { 32, 48+lym[3], 1 }, { 138, 48+lym[3], 1 }, { 147, 48+lym[3], 1 },
+        { 185, 48+lym[3], 1 }, { 291, 48+lym[3], 1 }, { 300, 48+lym[3], 1 },
+        { 32, 121+lym[0], 1 }, { 185, 121+lym[0], 1 },
+        { 32, 121+lym[1], 1 }, { 185, 121+lym[1], 1 },
+        { 32, 121+lym[2], 1 }, { 138, 121+lym[2], 0 }, { 147, 121+lym[2], 0 },
+        { 185, 121+lym[2], 1 }, { 291, 121+lym[2], 0 }, { 300, 121+lym[2], 0 },
+        { 32, 121+lym[3], 1 }, { 138, 121+lym[3], 1 }, { 147, 121+lym[3], 1 },
+        { 185, 121+lym[3], 1 }, { 291, 121+lym[3], 1 }, { 300, 121+lym[3], 1 },
+        { 0, 0, -1 } };
 
     if (!roster[0].pilotname[0]) {
         response = small_warning("You have no pilots in the roster and\n"
@@ -2336,22 +2416,87 @@ void assign_menu(void) {
     ruksi = new Bitmap("RUKSI");
     help = new Bitmap("HELP5");
 
+    if (network_is_active()) {
+        for (l = 0; l < 4; l++) {
+            network_get_allowed_controls(l, clientname[l]);
+        }
+    }
+
+    if (network_is_active()) {
+        positions[6].active = 1;
+        positions[7].active = 1;
+        positions[9].active = 1;
+        positions[10].active = 1;
+        positions[22].active = 1;
+        positions[23].active = 1;
+        positions[25].active = 1;
+        positions[26].active = 1;
+    } else {
+        positions[6].active = 0;
+        positions[7].active = 0;
+        positions[9].active = 0;
+        positions[10].active = 0;
+        positions[22].active = 0;
+        positions[23].active = 0;
+        positions[25].active = 0;
+        positions[26].active = 0;
+    }
 
     while (!exit_flag) {
-        if (kbhit()) {
-            if (!(ch = getch())) {
-                ch = getch();
-                if (ch == 59)
-                    wtoggle(&help_on);
-
-            } else {
-                if (ch == 27)
-                    exit_flag = 1;
+        if (network_is_active()) {
+            // try to auto-allocate controls
+            unallocated[0] = '\0';
+            tmpname[0] = '\0';
+            for (;;) {
+                network_find_next_controls(0, tmpname);
+                if (tmpname[0] == '\0')
+                    break;      // no more players wanting controls
+                for (l = 0; l < 4; l++)
+                    if (strcmp(clientname[l], tmpname) == 0)
+                        break;
+                if (l != 4)     // tmpname already controls something
+                    continue;
+                l = network_find_preferred_color(tmpname);
+                if (l == -1)
+                    continue;   // doesn't want controls (shouldn't happen)
+                if (!autoallocate[l])
+                    goto notallocated;
+                if (clientname[l][0] != '\0')
+                    goto notallocated; // l is already network-controlled
+                // handle a solo player, if any
+                for (l2 = 0; l2 < 4; l2++) {
+                    if (config.player_type[l2] == 1) {
+                        if (l2 != l) {
+                            if (!autoallocate[l2] || clientname[l2][0] != '\0')
+                                // we should not change current solo player
+                                goto notallocated;
+                            config.player_type[l2] = 0;
+                            config.player_number[l2] = -1;
+                        }
+                        // auto-allocate tmpname for solo country l
+                        config.player_type[l] = 1;
+                        goto allocate;
+                    }
+                }
+                // we are not in solo mode
+                // auto-allocate tmpname for country l
+                config.player_type[l] = 3;
+            allocate:
+                strcpy(clientname[l], tmpname);
+                set_roster_from_clientname(l, clientname[l]);
+                continue;
+            notallocated:
+                l2 = strlen(unallocated);
+                snprintf(&unallocated[l2], 200-l2, "%s%s (%c)",
+                         l2==0 ? "" : ", ", tmpname,
+                         // FIXME add colored boxes to font to make this look nice?
+                         "GFEJ"[l]);
             }
-
         }
 
-        koords(&x, &y, &n1, &n2);
+        menu_keys(&exit_flag, &help_on);
+
+        menu_mouse(&x, &y, &n1, &n2, positions);
         acesme->blit(0, 0);
 
 
@@ -2369,9 +2514,10 @@ void assign_menu(void) {
 
             ruksi->blit(28 + lx, 45 + ly + lym[config.player_type[l]]);
 
-            if (config.player_number[l] != -1) {
+            if (config.player_number[l] == -2) {
+                frost->printf(46 + lx, 82 + ly, "Anonymous pilot");
+            } else if (config.player_number[l] != -1) {
                 frost->printf(46 + lx, 82 + ly, roster[config.player_number[l]].pilotname);
-
             }
 
             for (l2 = 0; l2 < 4; l2++) {
@@ -2398,12 +2544,45 @@ void assign_menu(void) {
             }
         }
 
+        if (network_is_active()) {
+            for (l = 0; l < 4; l++) {
+                ly = (l / 2) * 73;
+                lx = (l % 2) ? 153 : 0;
+
+                if (config.player_type[l] != 1 && config.player_type[l] != 3)
+                    continue;
+
+                if (clientname[l][0] == '\0') {
+                    frost->printf(46 + lx, 70 + ly, "Local player");
+                } else {
+                    frost->printf(46 + lx, 70 + ly, "Remote: %s", clientname[l]);
+                }
+
+                if (x >= (134 + lx) && x < (143 + lx) && y >= (67 + ly) && y <= (77 + ly)) {
+                    menusubselect1 = l;
+                    menuselect = 5;
+                    //frost->printf(82,177,"Select next network player");
+                }
+
+                if (x >= (143 + lx) && x <= (151 + lx) && y >= (67 + ly) && y <= (77 + ly)) {
+                    menusubselect1 = l;
+                    menuselect = 6;
+                    //frost->printf(82,177,"Select previous network player");
+                }
+            }
+        }
+
         cursor->blit(x - 10, y - 10);
         if (help_on)
             help->blit(0, 0);
         do_all();
 
         if ((n1 || n2) && menuselect) {
+            // disable automatic network player allocation for a
+            // country that has been touched manually
+            if (menuselect != 2 && menusubselect1 >= 0 && menusubselect1 < 4)
+                autoallocate[menusubselect1] = false;
+
             switch (menuselect) {
 
             case 1:
@@ -2411,8 +2590,11 @@ void assign_menu(void) {
 
                 if (menusubselect2 == 1) {
                     for (l = 0; l < 4; l++) {
-                        if (l == menusubselect1)
+                        if (l == menusubselect1) {
+                            if (config.player_number[l] == -2)
+                                config.player_number[l] = -1; // updated below
                             continue;
+                        }
 
                         config.player_type[l] = 0;
                         config.player_number[l] = -1;
@@ -2433,11 +2615,14 @@ void assign_menu(void) {
                     config.player_number[menusubselect1] = -1;
                 else {
                     if (config.player_number[menusubselect1] == -1) {
-
-                        for (l = 0; l < MAX_PLAYERS_IN_ROSTER; l++) {
-                            if (!roster[l].pilotname[0]) {
-                                config.player_type[menusubselect1] = 0;
-                                config.player_number[menusubselect1] = -1;
+                        for (l = 0; l <= MAX_PLAYERS_IN_ROSTER; l++) {
+                            if (l == MAX_PLAYERS_IN_ROSTER || !roster[l].pilotname[0]) {
+                                if (menusubselect2 == 3) {
+                                    config.player_number[menusubselect1] = -2;
+                                } else {
+                                    config.player_type[menusubselect1] = 0;
+                                    config.player_number[menusubselect1] = -1;
+                                }
                                 break;
                             } else {
                                 for (l3 = 0; l3 < 4; l3++) {
@@ -2457,16 +2642,16 @@ void assign_menu(void) {
                             }
 
                         }
-                        if (l == MAX_PLAYERS_IN_ROSTER) {
-                            config.player_type[menusubselect1] = 0;
-                            config.player_number[menusubselect1] = -1;
-
-                        }
-
                     }
                 }
 
-
+                if (network_is_active()) {
+                    for (l = 0; l < 4; l++) {
+                        if (config.player_type[l] == 0 || config.player_type[l] == 2) {
+                            clientname[l][0] = '\0';
+                        }
+                    }
+                }
 
                 break;
 
@@ -2477,115 +2662,63 @@ void assign_menu(void) {
                 break;
 
             case 3:
-                ly = 0;
                 lx = config.player_number[menusubselect1];
-                l2 = lx + 1;
-
-                while (!ly) {
-                    ly = 1;
-
-                    if (lx == l2) {
-                        l2 = -1;
-                        break;
+                l2 = lx;
+                do {
+                    l2 = (l2 == -2) ? 0 : l2 + 1;
+                    if (l2 >= MAX_PLAYERS_IN_ROSTER || (l2 >= 0 && !roster[l2].pilotname[0])) {
+                        if (config.player_type[menusubselect1] == 3)
+                            l2 = -2;
+                        else
+                            l2 = 0;
                     }
-
-                    if (l2 != -1) {
-                        if (!roster[l2].pilotname[0]) {
-                            ly = 0;
-                            l2 = -1;
+                    if (l2 == lx)
+                        l2 = (config.player_type[menusubselect1] == 3) ? -2 : -1;
+                    if (l2 < 0)
+                        break;
+                    for (l = 0; l < 4; l++) {
+                        if (l == menusubselect1)
                             continue;
-                        }
-
-
-                        for (l = 0; l < 4; l++) {
-                            if (l == menusubselect1)
-                                continue;
-
-                            if (config.player_number[l] == l2) {
-                                l2++;
-                                ly = 0;
-                                continue;
-                            }
-
-
-                        }
-
-                    } else {
-
-                        l2 = -1;
-                        break;
+                        if (config.player_number[l] == l2)
+                            break;
                     }
-                }
-
+                } while (l != 4);
                 config.player_number[menusubselect1] = l2;
-
                 break;
 
             case 4:
-                ly = 0;
                 lx = config.player_number[menusubselect1];
-                l2 = lx - 1;
-                if (l2 < -1)
-                    l2 = -1;
-
-
-
-                while (!ly) {
-                    ly = 1;
-
-                    if (l2 != -1) {
-
-                        for (l = 0; l < 4; l++) {
-                            if (l == menusubselect1)
-                                continue;
-
-                            if (config.player_number[l] == l2) {
-                                l2--;
-                                ly = 0;
+                l2 = lx;
+                do {
+                    if (l2 == 0 && config.player_type[menusubselect1] == 3) {
+                        l2 = -2;
+                    } else if (l2 <= 0) {
+                        for (l2 = MAX_PLAYERS_IN_ROSTER - 1; l2 >= 0; l2--)
+                            if (roster[l2].pilotname[0])
                                 break;
-                            }
-
-
-                        }
-
                     } else {
-
-                        l2 = -1;
+                        l2--;
+                    }
+                    if (l2 == lx)
+                        l2 = (config.player_type[menusubselect1] == 3) ? -2 : -1;
+                    if (l2 < 0)
                         break;
+                    for (l = 0; l < 4; l++) {
+                        if (l == menusubselect1)
+                            continue;
+                        if (config.player_number[l] == l2)
+                            break;
                     }
-                }
-
-                if (l2 == -1) {
-                    for (l2 = MAX_PLAYERS_IN_ROSTER - 1; l2 >= 0; l2--) {
-                        if (roster[l2].pilotname[0]) {
-                            for (l = 0; l < 4; l++) {
-                                if (l == menusubselect1)
-                                    continue;
-
-                                if (config.player_number[l] == l2) {
-                                    break;
-
-                                }
-                            }
-
-                            if (l == 4)
-                                break;
-
-                        }
-                    }
-
-
-                    config.player_number[menusubselect1] = l2;
-                    break;
-                }
-
+                } while (l != 4);
                 config.player_number[menusubselect1] = l2;
-
-
-
                 break;
 
-
+            case 5: case 6:
+                network_find_next_controls((menuselect == 6),
+                                           clientname[menusubselect1]);
+                set_roster_from_clientname(menusubselect1,
+                                           clientname[menusubselect1]);
+                break;
             }
         }
 
@@ -2599,7 +2732,31 @@ void assign_menu(void) {
             config.player_type[l] = 0;
             config.player_number[l] = -1;
         }
+        if (config.player_number[l] == -2 && config.player_type[l] != 3) {
+            config.player_type[l] = 0;
+            config.player_number[l] = -1;
+        }
+        if (network_is_active()) {
+            // check for and remove duplicate network players
+            if (config.player_type[l] == 3 && clientname[l][0] != '\0') {
+                for (l2 = l + 1; l2 < 4; l2++) {
+                    if (config.player_type[l2] == 3 &&
+                        strcmp(clientname[l], clientname[l2]) == 0) {
+                        config.player_type[l2] = 0;
+                        config.player_number[l2] = -1;
+                    }
+                }
+            }
+
+            if (config.player_type[l] == 1 || config.player_type[l] == 3)
+                network_set_allowed_controls(l, clientname[l]);
+            else
+                network_set_allowed_controls(l, "");
+        }
     }
+
+    if (network_is_active())
+        network_reallocate_controls();
 
     delete acesme;
     delete ruksi;
@@ -2616,13 +2773,13 @@ void aces_menu(void) {
     int menuselect;
     int current_page = 0;
     int help_on = 0;
-    char ch;
     Bitmap *acesme;
     Bitmap *firstpage;
     Bitmap *buttl;
     Bitmap *buttr;
     Bitmap *help;
-
+    menu_position positions[] = { { 239, 181, 1 }, { 257, 181, 1 },
+                                  { 280, 181, 1 }, { 0, 0, -1 } };
 
     if (is_there_sound && config.music_on) {
         sdl_stop_music();
@@ -2642,21 +2799,9 @@ void aces_menu(void) {
     do_all_clear();
 
     while (!exit_flag) {
+        menu_keys(&exit_flag, &help_on);
 
-        if (kbhit()) {
-            if (!(ch = getch())) {
-                ch = getch();
-                if (ch == 59)
-                    wtoggle(&help_on);
-
-            } else {
-                if (ch == 27)
-                    exit_flag = 1;
-            }
-
-        }
-
-        koords(&x, &y, &n1, &n2);
+        menu_mouse(&x, &y, &n1, &n2, positions);
 
         if (!current_page)
             firstpage->blit(75, 34);
@@ -2780,6 +2925,10 @@ int kangas_menu(void) {
     int menuselect;
     int place_x = -2079;
     int showing_texts = 1;
+    menu_position positions[] = {
+        { 15, 18, 1},
+        { 8, 195, 1}, { 26, 195, 1}, { 62, 195, 1}, { 80, 195, 1},
+        { 0, 0, -1} };
 
     Bitmap *kangas = new Bitmap("KANGAS", 0);
     Bitmap *buttr = new Bitmap("BUTTR");
@@ -2817,11 +2966,9 @@ int kangas_menu(void) {
     }
 
     while (!exit_flag) {
-        if (kbhit() && getch() == SDLK_ESCAPE) {
-            exit_flag = 1;
-        }
+        menu_keys(&exit_flag, NULL);
 
-        koords(&x, &y, &n1, &n2);
+        menu_mouse(&x, &y, &n1, &n2, positions);
         kangas->blit_fullscreen();
         kangas_terrain_to_screen(place_x);
 
@@ -2918,7 +3065,6 @@ int kangas_menu(void) {
 
     if ((mission_re_fly == -1) && is_there_sound && config.music_on && !findparameter("-nomusic")) {
         sdl_stop_music();
-        sdl_free_mod_file(national_mod);
     }
 
 
@@ -2953,12 +3099,9 @@ void credits_menu(void) {
         init_vga("PALET7");
 
     while (!exit_flag) {
-        if (kbhit()) {
-            getch();
-            exit_flag = 1;
-        }
+        menu_keys(&exit_flag, NULL);
+        menu_mouse(&x, &y, &n1, &n2);
 
-        koords(&x, &y, &n1, &n2);
         credi1->blit(0, 0);
 
 
@@ -3006,7 +3149,6 @@ void letter_menu(void) {
     int exit_flag = 0;
     int x, y, n1, n2;
     char country_names[4][10] = { "German", "Finnish", "English", "Japanese" };
-    char modnames[4][7] = { "mgerma", "mfinla", "mengla", "mjapan" };
 
     Bitmap *letter;
     Bitmap *temp;
@@ -3017,26 +3159,16 @@ void letter_menu(void) {
     delete temp;
 
     if (is_there_sound && config.music_on && !findparameter("-nomusic")) {
-        national_mod = sdl_load_mod_file(modnames[solo_country]);
-        if (national_mod == NULL) {
-            printf("Error locating music.\n");
-            exit(1);
-
-        }
-        sdl_play_music(national_mod);
-
+        sdl_play_music(national_mod[solo_country]);
     }
 
 
     letter = new Bitmap("LETTER");
 
     while (!exit_flag) {
-        if (kbhit()) {
-            getch();
-            exit_flag = 1;
-        }
+        menu_keys(&exit_flag, NULL);
+        menu_mouse(&x, &y, &n1, &n2);
 
-        koords(&x, &y, &n1, &n2);
         letter->blit(0, 0);
         medal1->blit(15, 80);
         frost->printf(145, 104, "From: %s central command headquaters.", country_names[solo_country]);
@@ -3072,11 +3204,319 @@ void letter_menu(void) {
 
     if (is_there_sound && config.music_on && !findparameter("-nomusic")) {
         sdl_stop_music();
-        sdl_free_mod_file(national_mod);
     }
 }
 
+void netgame_menu(void) {
+#ifdef _MSC_VER
+    static bool net_initialized = false;
+    if (!net_initialized) {
+        if (!init()) exit(1);
+        net_initialized = true;
+    }
+#endif
 
+    int help_on = 0;
+    int exit_flag = 0;
+    int i, x, y, n1, n2, menuselect;
+    Bitmap *netmenu, *right;
+    Bitmap *assignme, *playerselect;
+    char str[100];
+    menu_position positions[] = {
+        { 40, 43, 1 }, { 168, 43, 1 },
+        { 82, 53, 1 }, { 210, 53, 1 },
+        { 40, 73, 1 }, { 168, 73, 1 },
+        { 106, 130, 1 }, { 114, 130, 1 },
+        { 40, 153, 1 },
+        { 67, 174, 1 }, { 195, 174, 1 }, { 284, 180, 1 },
+        { 0, 0, -1 } };
+
+    if (config.netc_solo_controls < 0 ||
+        !roster[config.netc_solo_controls].pilotname[0])
+        config.netc_solo_controls = 0;
+
+    if (strcmp(config.netc_playername, "netplayer") == 0 &&
+        roster[config.netc_solo_controls].pilotname[0] &&
+        check_strict_string(roster[config.netc_solo_controls].pilotname, 21))
+        strcpy(config.netc_playername,
+               roster[config.netc_solo_controls].pilotname);
+
+    netmenu = new Bitmap("NETMEN");
+    right = new Bitmap("RIGHT");
+    assignme = new Bitmap("ASSIGN");
+    playerselect = new Bitmap(134, 79, 19, 10, assignme);
+
+    while (!exit_flag) {
+        menu_keys(&exit_flag, &help_on);
+        menu_mouse(&x, &y, &n1, &n2, positions);
+        netmenu->blit(0, 0);
+
+        frost->printf(20+4, 11, "JOIN A NETWORK GAME");
+
+        frost->printf(20, 30, "Server address:");
+        frost->printf(20+10, 40, "%s", config.netc_host);
+        frost->printf(20, 50, "Server port:");
+        frost->printf(20+55, 50, "%d", config.netc_port);
+        // FIXME hide password?
+        frost->printf(20, 60, "Server password:");
+        frost->printf(20+10, 70, "%s", config.netc_password);
+
+	frost->printf(20, 118, "Use solo controls of:");
+	playerselect->blit(101, 125);
+	if (roster[config.netc_solo_controls].pilotname[0])
+            frost->printf(20+10, 128, "%s",
+                          roster[config.netc_solo_controls].pilotname);
+
+        frost->printf(20, 140, "Player name:");
+        frost->printf(20+10, 150, "%s", config.netc_playername);
+
+        // FIXME draw the button in the bitmap?
+        frost->printf(20+5, 170, "[ START THE CLIENT ]");
+
+        frost->printf(148+4, 11, "HOST A NETWORK GAME");
+
+        frost->printf(148, 30, "Listen address:");
+        frost->printf(148+10, 40, "%s", config.neth_listenaddr);
+        frost->printf(148, 50, "Server port:");
+        frost->printf(148+55, 50, "%d", config.neth_listenport);
+        // FIXME hide password?
+        frost->printf(148, 60, "Server password:");
+        frost->printf(148+10, 70, "%s", config.neth_password);
+
+        // FIXME draw the button in the bitmap?
+        if (network_is_active()) {
+            frost->printf(148+5, 170, "[ STOP THE SERVER ]");
+        } else {
+            frost->printf(148+3, 170, "[ START THE SERVER ]");
+        }
+
+        menuselect = 0;
+
+        if (x >= 267 && x <= 301 && y >= 155 && y <= 190) {
+            menuselect = 1;
+        }
+
+        if (x >= 20 && x <= 115 && y >= 168 && y <= 182) {
+            menuselect = 2;
+        }
+
+        if (x >= 148 && x <= 243 && y >= 168 && y <= 182) {
+            menuselect = 3;
+        }
+
+        if (x >= 20+12 && x < 20+12+4*18 && y >= 103 && y <= 103+15) {
+            menuselect = 10 + (x - 20 - 12) / 18;
+        }
+
+        if (x >= 102 && x <= 117 && y >= 126 && y <= 126+7) {
+            menuselect = 15 + (x >= 110);
+        }
+
+        if (x >= 20+10 && x <= 115 && y >= 35 && y <= 49) {
+            menuselect = 20;
+        }
+
+        if (x >= 20+55 && x <= 115 && y >= 50 && y <= 62) {
+            menuselect = 21;
+        }
+
+        if (x >= 20+10 && x <= 115 && y >= 65 && y <= 79) {
+            menuselect = 22;
+        }
+
+        if (x >= 20+10 && x <= 115 && y >= 145 && y <= 159) {
+            menuselect = 23;
+        }
+
+        if (x >= 148+10 && x <= 243 && y >= 35 && y <= 49) {
+            menuselect = 30;
+        }
+
+        if (x >= 148+55 && x <= 243 && y >= 50 && y <= 62) {
+            menuselect = 31;
+        }
+
+        if (x >= 148+10 && x <= 243 && y >= 65 && y <= 80) {
+            menuselect = 32;
+        }
+
+        cursor->blit(x - 10, y - 10);
+        do_all();
+
+        if (n1 || n2) {
+            switch (menuselect) {
+
+            case 1:             // Exit menu
+                if (n1)
+                    random_fade_out();
+                else {
+                    tyhjaa_vircr();
+                    do_all();
+                }
+                exit_flag = 1;
+                break;
+
+            case 2:             // Start the client
+                netmenu->blit(0, 0, 20+5, 170, 145, 179);
+                frost->printf(20+5, 170, "Connecting... (Esc to abort)");
+                do_all();
+                if (network_is_active()) {
+                    small_warning("You cannot be both server and client\n"
+                                  "at the same time.\n"
+                                  "\n"
+                                  "Please stop the server first.");
+                    break;
+                }
+                if (!roster[config.netc_solo_controls].pilotname[0]) {
+                    small_warning("Your roster is empty, but you need a\n"
+                                  "player in the roster to set your keys.\n"
+                                  "\n"
+                                  "Please go to the roster menu and\n"
+                                  "create a player.");
+                    break;
+                }
+
+
+                set_keys_none();
+                /* Hardcode preferred color for now. */
+                netclient_activate_controls(0 /*red*/, config.netc_solo_controls);
+
+                netclient_loop(config.netc_host, config.netc_port,
+                               config.netc_playername, config.netc_password);
+                // Return back to netgame menu after client is done
+                init_vga("PALET5");
+                break;
+
+            case 3:             // Activate/deactivate the host
+                if (network_is_active()) {
+                    network_quit();
+                    wait_mouse_relase();
+                } else {
+                    if (n1)
+                        random_fade_out();
+                    else {
+                        tyhjaa_vircr();
+                        do_all();
+                    }
+                    network_activate_host(config.neth_listenaddr,
+                                          config.neth_listenport,
+                                          config.neth_password,
+                                          foverlay);
+                    // After activating the host, move to the assign
+                    // players menu (to select players) and then back
+                    // to the main menu
+                    exit_flag = 1;
+                    wait_mouse_relase();
+                    // Unset any solo players, so that the assign
+                    // players menu starts assigning players for a
+                    // multiplayer game by default
+                    for (i = 0; i < 4; i++) {
+                        if (config.player_type[i] == 1) {
+                            config.player_type[i] = 0;
+                            config.player_number[i] = -1;
+                        }
+                    }
+                    assign_menu();
+                }
+                break;
+
+            case 15:            // Solo controls up arrow
+                config.netc_solo_controls++;
+                if (config.netc_solo_controls >= MAX_PLAYERS_IN_ROSTER ||
+                    !roster[config.netc_solo_controls].pilotname[0]) {
+                    config.netc_solo_controls = 0;
+                }
+                if (roster[config.netc_solo_controls].pilotname[0] &&
+                    check_strict_string(roster[config.netc_solo_controls].pilotname, 21))
+                    strcpy(config.netc_playername,
+                           roster[config.netc_solo_controls].pilotname);
+                wait_mouse_relase(); // so this does not repeat
+                break;
+
+            case 16:            // Solo controls down arrow
+                if (config.netc_solo_controls <= 0) {
+                    for (config.netc_solo_controls = MAX_PLAYERS_IN_ROSTER - 1;
+                         /* finally select 0 if no others are ok */
+                         config.netc_solo_controls > 0;
+                         config.netc_solo_controls--)
+                        if (roster[config.netc_solo_controls].pilotname[0])
+                            break;
+                } else {
+                    config.netc_solo_controls--;
+                }
+                if (roster[config.netc_solo_controls].pilotname[0] &&
+                    check_strict_string(roster[config.netc_solo_controls].pilotname, 21))
+                    strcpy(config.netc_playername,
+                           roster[config.netc_solo_controls].pilotname);
+                wait_mouse_relase(); // so this does not repeat
+                break;
+
+            case 20:            // Address of host (client)
+                netmenu->blit(0, 0, 20+10, 40, 145, 49);
+                frost->scanf(20+10, 40, config.netc_host, 79);
+                break;
+
+            case 21:            // Port number (client)
+                netmenu->blit(0, 0, 20+55, 50, 145, 59);
+                sprintf(str, "%d", config.netc_port);
+                frost->scanf(20+55, 50, str, 15);
+                config.netc_port = atoi(str);
+                if (config.netc_port < 1 || config.netc_port > 65535)
+                    config.netc_port = 9763;
+                break;
+
+            case 22:            // Game password (client)
+                netmenu->blit(0, 0, 20+10, 70, 145, 79);
+                frost->scanf(20+10, 70, config.netc_password, 20);
+                if (config.netc_password[0] == '\0')
+                    strcpy(config.netc_password, "triplane");
+                break;
+
+            case 23:            // Player name (client)
+                netmenu->blit(0, 0, 20+10, 150, 145, 159);
+                frost->scanf(20+10, 150, config.netc_playername, 20);
+                if (config.netc_playername[0] == '\0' ||
+                    !check_strict_string(config.netc_playername, 21))
+                    strcpy(config.netc_playername, "netplayer");
+                break;
+
+            case 30:            // Listen address (host)
+                netmenu->blit(0, 0, 148+10, 40, 255, 49);
+                frost->scanf(148+10, 40, config.neth_listenaddr, 79);
+                if (config.neth_listenaddr[0] == '\0')
+                    strcpy(config.neth_listenaddr, "0.0.0.0");
+                break;
+
+            case 31:            // Listen port (host)
+                netmenu->blit(0, 0, 148+55, 50, 255, 59);
+                sprintf(str, "%d", config.neth_listenport);
+                frost->scanf(148+55, 50, str, 15);
+                config.neth_listenport = atoi(str);
+                if (config.neth_listenport < 1 || config.neth_listenport > 65535)
+                    config.neth_listenport = 9763;
+                break;
+
+            case 32:            // Game password (host)
+                netmenu->blit(0, 0, 148+10, 70, 255, 79);
+                frost->scanf(148+10, 70, config.neth_password, 20);
+                if (config.neth_password[0] == '\0')
+                    strcpy(config.neth_password, "triplane");
+                break;
+
+            default:
+                break;
+            }
+        }
+    }
+
+
+    delete playerselect;
+    delete assignme;
+    delete right;
+    delete netmenu;
+
+    wait_mouse_relase();
+}
 
 void main_menu(void) {
     int exit_flag = 0;
@@ -3084,8 +3524,12 @@ void main_menu(void) {
     int menuselect;
     int l, l2, l3;
     int help_on = 0;
-    int ch;
     Bitmap *help;
+
+    menu_position positions[] = {
+        { 51, 40, 1 }, { 103, 40, 1 }, { 156, 40, 1 }, { 214, 40, 1 },
+        { 268, 40, 1 }, { 51, 77, 1 }, { 51, 120, 1 }, { 254, 120, 1 },
+        { 51, 164, 1 }, { 268, 169, 1 }, { 0, 0, -1 } };
 
     help = new Bitmap("HELP1");
 
@@ -3099,19 +3543,13 @@ void main_menu(void) {
     hiiri_to(254, 120);
 
     while (!exit_flag) {
-        if (kbhit()) {
-            ch = getch();
-            if (ch == SDLK_F1) {
-                wtoggle(&help_on);
-            } else {
-                if (ch == SDLK_ESCAPE)
-                    exit_flag = 1;
-            }
-        }
+        menu_keys(&exit_flag, &help_on);
 
-        koords(&x, &y, &n1, &n2);
+        menu_mouse(&x, &y, &n1, &n2, positions);
         menu1->blit(0, 0);      // 0,0,799,599
-        grid2->printf(34, 156, "Press F1\nfor Help");
+        // FIXME write this in a nicer way in the menu1 bitmap data?
+        // FIXME fix this part of the help bitmap
+        grid2->printf(39, 157, "NETWORK\n GAME");
 
         for (l = 0; l < 4; l++)
             if (config.player_type[l] == 1)
@@ -3154,35 +3592,49 @@ void main_menu(void) {
 
                 }
 
-                for (l = 0; l < 4; l++) {
-                    if (config.player_type[l] == 3) {
-                        frost->printf(110, 130 + l * 11, "%d. %s", l + 1, roster[config.player_number[l]].pilotname);
-
+                if (network_is_active()) {
+                    for (l = 0; l < 4; l++) {
+                        if (config.player_type[l] == 3) {
+                            frost->printf(100, 121 + l * 15, "%d. %s",
+                                          l + 1,
+                                          (config.player_number[l] == -2)
+                                          ? "Anonymous pilot"
+                                          : roster[config.player_number[l]].pilotname);
+                            frost->printf(109, 121 + l * 15 + 7,
+                                          "(%s)",
+                                          network_controlling_player_string(l));
+                        } else if (config.player_type[l] == 2) {
+                            frost->printf(100, 121 + l * 15,
+                                          "%d. Computer pilot", l + 1);
+                        } else if (config.player_type[l] == 0) {
+                            frost->printf(100, 121 + l * 15,
+                                          "%d. Not active", l + 1);
+                        }
                     }
-
-                    if (config.player_type[l] == 2) {
-                        frost->printf(110, 130 + l * 11, "%d. Computer pilot", l + 1);
-
+                } else {
+                    for (l = 0; l < 4; l++) {
+                        if (config.player_type[l] == 3) {
+                            frost->printf(110, 130 + l * 11, "%d. %s",
+                                          l + 1,
+                                          (config.player_number[l] == -2)
+                                          ? "Anonymous pilot"
+                                          : roster[config.player_number[l]].pilotname);
+                        } else if (config.player_type[l] == 2) {
+                            frost->printf(110, 130 + l * 11, "%d. Computer pilot", l + 1);
+                        } else if (config.player_type[l] == 0) {
+                            frost->printf(110, 130 + l * 11, "%d. Not active", l + 1);
+                        }
                     }
-
-                    if (config.player_type[l] == 0) {
-                        frost->printf(110, 130 + l * 11, "%d. Not active", l + 1);
-
-
-                    }
-
-
-
                 }
-
             }
-
         } else {
             frost->printf(100, 100, "Sologame active");
             frost->printf(100, 110, "%s selected", plane_name[l]);
 
             frost->printf(110, 130, "%s flying", roster[config.player_number[l]].pilotname);
-
+            if (network_is_active())
+                frost->printf(110, 140, "(%s)",
+                              network_controlling_player_string(l));
         }
 
         if (help_on)
@@ -3232,6 +3684,15 @@ void main_menu(void) {
         if (x >= 242 && x <= 295 && y >= 27 && y <= 53) {
             frost->printf(247, 32, "Credits");
             menuselect = 9;
+        }
+
+        if (x >= 30 && x <= 73 && y >= 147 && y <= 182) {
+            frost->printf(245, 32, "Start/join a\nnetwork game");
+            menuselect = 10;
+        }
+
+        if (menuselect == 0) {
+            frost->printf(247, 32, "Press F1\n for Help");
         }
 
         cursor->blit(x - 10, y - 10);
@@ -3299,10 +3760,6 @@ void main_menu(void) {
 
                 init_vga("PALET5");
 
-                for (l = 0; l < 16; l++) {
-                    player_exists[l] = 0;
-                    plane_present[l] = 0;
-                }
                 for (l = 0; l < 4; l++) {
                     if (config.player_type[l] == 1 || config.player_type[l] == 3) {
                         if (config.player_number[l] != -1) {
@@ -3317,48 +3774,7 @@ void main_menu(void) {
                     break;
                 }
 
-                playing_solo = 0;
-                solo_mode = -1;
-
-                for (l = 0; l < 4; l++) {
-                    switch (config.player_type[l]) {
-                    case 0:
-                        player_exists[l] = 0;
-                        break;
-
-                    case 1:
-                        player_exists[l] = 1;
-                        computer_active[l] = 0;
-                        playing_solo = 1;
-                        solo_country = l;
-                        solo_mode = l;
-                        break;
-
-                    case 2:
-                        if ((l == 1 || l == 2) && config.current_multilevel == 5) {
-                            player_exists[l] = 0;
-                            computer_active[l] = 0;
-                            config.player_type[l] = 0;
-
-                        } else {
-                            player_exists[l] = 1;
-                            computer_active[l] = 1;
-                        }
-                        break;
-
-                    case 3:
-                        player_exists[l] = 1;
-                        computer_active[l] = 0;
-                        break;
-
-
-                    }
-
-                }
-
-
-
-
+                set_player_types();
 
                 if (is_there_sound && (!findparameter("-nomusic"))) {
 
@@ -3496,6 +3912,13 @@ void main_menu(void) {
 
                 break;
 
+            case 10:
+                if (n1)
+                    random_fade_out();
+                wait_mouse_relase();
+                netgame_menu();
+
+                break;
 
             }
         }
@@ -3552,16 +3975,4 @@ void print_filled_roster(int number) {
 
     frost->printf(122, 177, "Total: %d", ts + roster[number].solo_mis_totals);
 
-}
-
-void wait_mouse_relase(int nokb) {
-    int n1 = 1, n2 = 1, x, y;
-
-    while (n1 || n2) {
-        koords(&x, &y, &n1, &n2);
-
-        if (!nokb)
-            while (kbhit())
-                getch();
-    }
 }

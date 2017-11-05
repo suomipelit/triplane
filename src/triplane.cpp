@@ -26,7 +26,9 @@
 
 #include "triplane.h"
 #include "io/joystick.h"
+#include "io/netclient.h"
 #include "gfx/gfx.h"
+#include "menus/menusupport.h"
 #include "menus/tripmenu.h"
 #include "world/terrain.h"
 #include "world/fobjects.h"
@@ -40,6 +42,7 @@
 #include <time.h>
 #include <string.h>
 #include "io/trip_io.h"
+#include "io/network.h"
 #include "io/sdl_compat.h"
 #include "settings.h"
 
@@ -143,11 +146,7 @@ int struct_heigth[MAX_STRUCTURES];
 Font *fontti;
 Font *frost;
 Font *grid2;
-
-//\ Parameter control
-
-char parametrit[40][40];
-int parametri_kpl;
+Font *foverlay;
 
 //\ Shots control
 
@@ -177,6 +176,8 @@ int hangarmenu_max_gas[16];
 int hangarmenu_max_ammo[16];
 int hangarmenu_max_bombs[16];
 
+keymap current_keys[4];
+int32_t current_joystick[2];
 
 /* Timing */
 short int viimeiset_framet = 0;
@@ -202,8 +203,6 @@ int player_on_airfield[16];
 
 int collision_detect = 1;
 int part_collision_detect = 1;
-int power_reverse = 0;
-int power_on_off = 0;
 int loading_texts = 0;
 int solo_mode = -1;
 int aftermath;
@@ -362,7 +361,6 @@ extern char mission_names[24][30];
 //\\\\ Prototypes
 
 void hangarmenu_handle(void);
-int findparameter(const char *jono);
 void controls(void);
 void detect_collision(void);
 void main_engine(void);
@@ -381,7 +379,6 @@ void itgun_sound(int itgun_x);
 void rotate_water_palet(void);
 void cause_damage(int amount, int plane);
 int small_warning(const char *message);
-int big_warning(const char *message);
 void load_all_samples(void);
 void init_sologame(void);
 void write_files(void);
@@ -614,17 +611,74 @@ void init_sologame(void) {
     init_mission(solo_country, solo_mission);
 }
 
+int big_warning(const char *message) {
+    Bitmap *warnkuva;
+    int flag = 1, exit_flag = 0;
+    int x, y, n1, n2;
+    int response = 0;
+    menu_position positions[] = {
+      { 61, 167, 1 }, { 259, 167, 1 }, { 0, 0, -1 } };
+
+    warnkuva = new Bitmap("WARN1");
+
+    wait_mouse_relase();       // ensure that exiting requires a click
+
+    while (flag) {
+        menu_keys(&exit_flag, NULL);
+        menu_mouse(&x, &y, &n1, &n2, positions);
+
+        if (exit_flag) {
+            flag = 0;
+            response = 0;
+        }
+
+        tyhjaa_vircr();
+        warnkuva->blit(37, 19);
+        frost->printf(41, 37, message);
+        cursor->blit(x - 10, y - 10);
+
+        do_all();
+
+        if (n1 || n2) {
+            if (x >= 42 && x <= 81 && y >= 158 && y <= 177) {
+                flag = 0;
+                response = 1;
+            }
+
+            if (x >= 240 && x <= 279 && y >= 158 && y <= 177) {
+                flag = 0;
+                response = 0;
+            }
+        }
+    }
+
+    wait_mouse_relase();
+
+    delete warnkuva;
+
+    return response;
+}
 
 int small_warning(const char *message) {
     Bitmap *warnkuva;
-    int flag = 1;
+    int flag = 1, exit_flag = 0;
     int x, y, n1, n2;
     int response = 0;
+    menu_position positions[] = {
+      { 111, 124, 1 }, { 206, 124, 1 }, { 0, 0, -1 } };
 
     warnkuva = new Bitmap("WARN2");
 
+    wait_mouse_relase();       // ensure that exiting requires a click
+
     while (flag) {
-        koords(&x, &y, &n1, &n2);
+        menu_keys(&exit_flag, NULL);
+        menu_mouse(&x, &y, &n1, &n2, positions);
+
+        if (exit_flag) {
+            flag = 0;
+            response = 0;
+        }
 
         tyhjaa_vircr();
         warnkuva->blit(87, 59);
@@ -650,19 +704,12 @@ int small_warning(const char *message) {
         }
     }
 
-    while (n1 || n2)
-        koords(&x, &y, &n1, &n2);
+
+    wait_mouse_relase();
 
     delete warnkuva;
 
     return response;
-}
-
-int big_warning(const char *message) {
-    if (message == NULL)
-        return 0;
-    else
-        return 0;
 }
 
 void cause_damage(int amount, int plane) {
@@ -910,17 +957,155 @@ void init_player(int l, int pommit) {
     }
 }
 
-int findparameter(const char *jono) {
-    int laskuri;
+/* set playing_solo, solo_country and other variables from current config */
+void set_player_types(void) {
+    int l;
 
-    for (laskuri = 1; laskuri < parametri_kpl; laskuri++)
-        if (!strncmp(parametrit[laskuri], jono, strlen(jono)))
-            return (laskuri);
+    playing_solo = 0;
+    solo_mode = -1;
 
-    return (0);
+    for (l = 0; l < 16; l++) {
+        player_exists[l] = 0;
+        plane_present[l] = 0;
+    }
+
+    for (l = 0; l < 4; l++) {
+        switch (config.player_type[l]) {
+        case 0:
+            player_exists[l] = 0;
+            break;
+
+        case 1:
+            player_exists[l] = 1;
+            computer_active[l] = 0;
+            playing_solo = 1;
+            solo_country = l;
+            solo_mode = l;
+            break;
+
+        case 2:
+            if ((l == 1 || l == 2) && config.current_multilevel == 5) {
+                player_exists[l] = 0;
+                computer_active[l] = 0;
+                config.player_type[l] = 0;
+            } else {
+                player_exists[l] = 1;
+                computer_active[l] = 1;
+            }
+            break;
+
+        case 3:
+            player_exists[l] = 1;
+            computer_active[l] = 0;
+            break;
+        }
+    }
 }
 
+void set_keys_none(void) {
+    // SDLK_UNKNOWN and SDL_SCANCODE_UNKNOWN are 0
+    memset(current_keys, 0, 4*sizeof(keymap));
+    current_joystick[0] = -1;
+    current_joystick[1] = -1;
+}
 
+void set_keys_from_multiplayer(int country) {
+    memcpy(&current_keys[country], &player_keys[country], sizeof(current_keys[country]));
+    current_joystick[0] = config.joystick[0];
+    current_joystick[1] = config.joystick[1];
+}
+
+void set_keys_from_roster(int country, int player_num) {
+    memcpy(&current_keys[country], &roster[player_num], sizeof(current_keys[country]));
+    // don't set current_joystick
+}
+
+// find new controls for player (0-3), writing them to the arguments
+// *power needs to have the previous value for power (for on/off power)
+void get_controls_for_player(int player,
+                             int *down, int *up, int *power,
+                             int *roll, int *guns, int *bombs) {
+    // for on/off power: when the power key is held down, have we
+    // already changed the setting
+    static int onoff_power_changed[4] = {0, 0, 0, 0};
+    int joynum;
+    int inmenu = (hangarmenu_active[player] || in_closing[player]);
+
+    for (joynum = 0; joynum <= 1; joynum++) {
+        if (current_joystick[joynum] == player) {
+            get_joystick_action(joynum, inmenu,
+                                down, up, power, roll, guns, bombs);
+            if (!joystick_has_roll_button(joynum) && !inmenu) {
+                // Autoroll code
+                *roll = 0;
+                if (*down == *up) /* not turning up/down */
+                    if ((player_upsidedown[player] && (player_angle[player] < 23040 || player_angle[player] > 69120)) ||
+                        (!player_upsidedown[player] && (player_angle[player] < 69120 && player_angle[player] > 23040)))
+                        if (!player_rolling[player])
+                            *roll = 1;
+            }
+            break;
+        }
+    }
+
+    if (joynum == 2) {   // no joystick control for this player
+        if (is_key(current_keys[player].down))
+            *down = 1;
+        else
+            *down = 0;
+
+        if (is_key(current_keys[player].up))
+            *up = 1;
+        else
+            *up = 0;
+
+        if (!config.poweronoff) {
+            if (is_key(current_keys[player].power))
+                *power = (config.powerrev ? 0 : 1);
+            else
+                *power = (config.powerrev ? 1 : 0);
+        } else {                // on/off power code
+            if (is_key(current_keys[player].power)) {
+                if (!onoff_power_changed[player]) {
+                    *power = !(*power);
+                    onoff_power_changed[player] = 1;
+                }
+            } else {
+                onoff_power_changed[player] = 0;
+                // and don't change *power
+            }
+
+            if (in_closing[player])
+                *power = 0;
+        }
+
+        if (is_key(current_keys[player].bombs))
+            *bombs = 1;
+        else
+            *bombs = 0;
+
+        if (is_key(current_keys[player].roll))
+            *roll = 1;
+        else
+            *roll = 0;
+
+        if (is_key(current_keys[player].guns))
+            *guns = 1;
+        else
+            *guns = 0;
+    } else if (joynum == 2) {   // no joystick, keyboard inactive
+        // act as if no keys are pressed
+        *down = 0;
+        *up = 0;
+        if (!config.poweronoff)
+            *power = (config.powerrev ? 1 : 0);
+        *bombs = 0;
+        *roll = 0;
+        *guns = 0;
+    }
+
+    network_controls_for_player(player, down, up, power, roll, guns, bombs);
+}
 
 void controls(void) {
     int l;
@@ -1103,99 +1288,10 @@ void controls(void) {
         if (l > 3)
             continue;
 
-
-        if (!playing_solo && config.joystick[0] == l) {
-            get_joystick_action(0, (hangarmenu_active[l] || in_closing[l]),
-                                &new_mc_down[l], &new_mc_up[l], &new_mc_power[l], &new_mc_roll[l], &new_mc_guns[l], &new_mc_bomb[l]);
-            if (!joystick_has_roll_button(0) && !(hangarmenu_active[l] || in_closing[l])) {
-                // Autoroll code
-                new_mc_roll[l] = 0;
-                if (new_mc_down[l] == new_mc_up[l])     /* not turning up/down */
-                    if ((player_upsidedown[l] && (player_angle[l] < 23040 || player_angle[l] > 69120)) ||
-                        (!player_upsidedown[l] && (player_angle[l] < 69120 && player_angle[l] > 23040)))
-                        if (!player_rolling[l])
-                            new_mc_roll[l] = 1;
-            }
-        } else {
-            if (!playing_solo && config.joystick[1] == l) {
-                get_joystick_action(1, (hangarmenu_active[l] || in_closing[l]),
-                                    &new_mc_down[l], &new_mc_up[l], &new_mc_power[l], &new_mc_roll[l], &new_mc_guns[l], &new_mc_bomb[l]);
-                if (!joystick_has_roll_button(1) && !(hangarmenu_active[l] || in_closing[l])) {
-                    // Autoroll code
-                    new_mc_roll[l] = 0;
-                    if (new_mc_down[l] == new_mc_up[l]) /* not turning up/down */
-                        if ((player_upsidedown[l] && (player_angle[l] < 23040 || player_angle[l] > 69120)) ||
-                            (!player_upsidedown[l] && (player_angle[l] < 69120 && player_angle[l] > 23040)))
-                            if (!player_rolling[l])
-                                new_mc_roll[l] = 1;
-                }
-            } else {
-                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].down) : is_key(player_keys[l].down)))
-                    new_mc_down[l] = 1;
-                else
-                    new_mc_down[l] = 0;
-
-                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].up) : is_key(player_keys[l].up)))
-                    new_mc_up[l] = 1;
-                else
-                    new_mc_up[l] = 0;
-
-                if (!power_on_off) {
-                    if (!power_reverse) {
-                        if ((playing_solo ? is_key(roster[config.player_number[solo_country]].power) : is_key(player_keys[l].power)))
-                            new_mc_power[l] = 1;
-                        else
-                            new_mc_power[l] = 0;
-                    } else {
-                        if ((playing_solo ? is_key(roster[config.player_number[solo_country]].power) : is_key(player_keys[l].power)))
-                            new_mc_power[l] = 0;
-                        else
-                            new_mc_power[l] = 1;
-                    }
-                } else {
-                    if ((playing_solo ? is_key(roster[config.player_number[solo_country]].power) : is_key(player_keys[l].power))) {
-                        if (!controls_power2[l]) {
-                            if (new_mc_power[l])
-                                new_mc_power[l] = 0;
-                            else
-                                new_mc_power[l] = 1;
-                        }
-                        controls_power2[l] = 1;
-
-                    } else
-                        controls_power2[l] = 0;
-
-                    if (in_closing[l])
-                        new_mc_power[l] = 0;
-
-                }
-
-                new_mc_bomb[l] = 0;
-
-                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].bombs) : is_key(player_keys[l].bombs))) {
-                    new_mc_bomb[l] = 1;
-
-                }
-
-                new_mc_roll[l] = 0;
-                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].roll) : is_key(player_keys[l].roll))) {
-
-                    new_mc_roll[l] = 1;
-
-
-                }
-
-
-                new_mc_guns[l] = 0;
-
-                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].guns) : is_key(player_keys[l].guns))) {
-                    new_mc_guns[l] = 1;
-
-                }
-            }
-        }
-
-
+        get_controls_for_player(l,
+                                &new_mc_down[l], &new_mc_up[l],
+                                &new_mc_power[l], &new_mc_roll[l],
+                                &new_mc_guns[l], &new_mc_bomb[l]);
 
         if (player_spinning[l]) {
             if (!player_rolling[l])
@@ -1464,9 +1560,6 @@ void main_engine(void) {
         part_collision_detect = config.partcollision;
     }
 
-    power_on_off = config.poweronoff;
-    power_reverse = config.powerrev;
-
     for (l = 0; l < 16; l++) {
         player_sides[l] = player_tsides[l];
 
@@ -1635,9 +1728,15 @@ void main_engine(void) {
     if (playing_solo) {
         init_exeptions(solo_country, solo_mission);
         tyhjaa_vircr();
+        set_keys_none();
+        set_keys_from_roster(solo_country, config.player_number[solo_country]);
     }
     //// Open joysticks
     if (!playing_solo) {
+        set_keys_from_multiplayer(0);
+        set_keys_from_multiplayer(1);
+        set_keys_from_multiplayer(2);
+        set_keys_from_multiplayer(3);
         open_close_joysticks(config.joystick[0] != -1, config.joystick[1] != -1);
     }
     //// Record
@@ -1662,6 +1761,15 @@ void main_engine(void) {
     //// Record
     setwrandom(7);
 
+    all_bitmaps_send_now();
+
+    network_ping(15);
+    while (!network_last_ping_done()) {
+        nopeuskontrolli();
+    }
+
+    network_change_game_mode(1);
+
     while (flag) {
         update_key_state();
 
@@ -1669,14 +1777,17 @@ void main_engine(void) {
             // wait until pause key is released, then pressed and released again
             while (is_key(SDLK_PAUSE)) {   // still pressed
                 nopeuskontrolli();
+                do_all();
                 update_key_state();
             }
             while (!is_key(SDLK_PAUSE)) {  // released
                 nopeuskontrolli();
+                do_all();
                 update_key_state();
             }
             while (is_key(SDLK_PAUSE)) {   // pressed again
                 nopeuskontrolli();
+                do_all();
                 update_key_state();
             }
         }
@@ -1687,14 +1798,17 @@ void main_engine(void) {
             // wait until F4 is released, then pressed and released again
             while (is_key(SDLK_F4)) {      // still pressed
                 nopeuskontrolli();
+                do_all();
                 update_key_state();
             }
             while (!is_key(SDLK_F4)) {     // released
                 nopeuskontrolli();
+                do_all();
                 update_key_state();
             }
             while (is_key(SDLK_F4)) {      // pressed again
                 nopeuskontrolli();
+                do_all();
                 update_key_state();
             }
         }
@@ -1867,6 +1981,8 @@ void main_engine(void) {
         }
     }
 
+    network_change_game_mode(0);
+
     wait_relase();
     mission_re_fly = -1;
 
@@ -1914,14 +2030,17 @@ void do_aftermath(int show_it_all) {
     int struct_score = 0;
     int some_score;
     int aaa_score = 0;
-    int x, y, n1, n2;
+    int x, y, n1, n2, exit_flag = 0;
     int need_for_letter = 0;
-    char ch;
     Bitmap *fly, *exit;
     int x_coord;
     int best_in_record = 0;
     int sisennys;
     int mission_success = 0;
+    menu_position positions[] = {
+      { 62, 195, 0 /* playing_solo */ }, { 80, 195, 1 }, { 0, 0, -1 } };
+
+    positions[0].active = playing_solo;
 
     fly = new Bitmap("FLY");
     exit = new Bitmap("EXIT");
@@ -1956,8 +2075,6 @@ void do_aftermath(int show_it_all) {
 
             fontti->printf(254, 80 + l * 21, "%4d%%", (player_hits[l] * 1000) / (firedi));
         }
-
-        do_all();
     }
 
     if (playing_solo) {
@@ -2171,9 +2288,6 @@ void do_aftermath(int show_it_all) {
 
         }
 
-        do_all();
-
-
         if (tempt < 0)
             tempt = 0;
 
@@ -2229,7 +2343,7 @@ void do_aftermath(int show_it_all) {
 
         }
 
-        if (config.player_type[l] == 3 && config.player_number[l] != -1) {
+        if (config.player_type[l] == 3 && config.player_number[l] >= 0) {
             roster[config.player_number[l]].multi_mis_flown++;
 
             tempt = 0;
@@ -2278,27 +2392,10 @@ void do_aftermath(int show_it_all) {
         l = 1;
 
         while (l == 1) {
-            if (kbhit()) {
-                if ((ch = getch()) == 27) {
-                    l = 0;
-
-                }
-
-                if (ch == 13) {
-                    l = 2;
-                    if (!need_for_letter) {
-                        if (!mission_success)
-                            mission_re_fly = solo_mission;
-                        else
-                            mission_re_fly = 999;
-                    }
-                }
-
-            }
-
-
-            koords(&x, &y, &n1, &n2);
-
+            menu_keys(&exit_flag, NULL);
+            if (exit_flag)
+                l = 0;
+            menu_mouse(&x, &y, &n1, &n2, positions);
 
             if (n1 || n2) {
                 if (playing_solo) {
@@ -2377,6 +2474,8 @@ void load_up(void) {
         fontti = new Font("FONTT");
         grid2 = new Font("G2FONT");
         grid2->scale();
+        foverlay = new Font("GRFONT", 0, 116);
+        foverlay->scale();
     }
 
     loading_text("Loading and initializing board-graphics.");
@@ -2475,6 +2574,7 @@ void load_up(void) {
             explox[l][l2] = new Bitmap(1 + l2 * 10, 1 + l * 10, 9, 9, plane1);
 
     delete plane1;
+    wfree(point1);
 
     loading_text("Loading AA-MG animations");
 
@@ -2898,7 +2998,6 @@ void load_up(void) {
 
     loading_text("Loading mouse cursor.");
     cursor = new Bitmap("CURSOR");
-
 }
 
 
@@ -3042,7 +3141,7 @@ void load_level(void) {
 
     loading_text("Loading levelinfo.");
 
-    if (!findparameter("-level")) {
+    if (findparameter_arg("-level") == NULL) {
         if (!playing_solo) {
             sprintf(levelname, "level%d", config.current_multilevel + 1);
         } else {
@@ -3050,8 +3149,8 @@ void load_level(void) {
 
         }
     } else {
-        sprintf(levelname, parametrit[findparameter("-level")] + 6);
-
+        strncpy(levelname, findparameter_arg("-level"), 80);
+        levelname[79] = '\0';
     }
 
 
@@ -3589,16 +3688,12 @@ void handle_parameters(void) {
 }
 
 int main(int argc, char *argv[]) {
-    int x, y, n1, n2;
+    int x, n1, n2;
     int laskuri;
     FILE *faili;
     Bitmap *lakuva1;
 
-    for (laskuri = 0; laskuri < argc; laskuri++)
-        strcpy(parametrit[laskuri], argv[laskuri]);
-
-    parametri_kpl = argc;
-
+    findparameter_init(argc, argv);
 
     if (findparameter("-?") || findparameter("-h") || findparameter("--help") || findparameter("-help")) {
         printf("Triplane Classic " TRIPLANE_VERSION "-" TRIPLANE_SP_VERSION " - a side-scrolling dogfighting game.\n");
@@ -3705,30 +3800,27 @@ int main(int argc, char *argv[]) {
     loading_text("\nData loading started.");
     load_up();
 
-
+    if (findparameter("-networkhost")) {
+        // frost was loaded in load_up() above
+        network_activate_host((findparameter_arg("-listenaddr") != NULL)
+                              ? findparameter_arg("-listenaddr")
+                              : config.neth_listenaddr,
+                              (findparameter_arg("-listenport") != NULL)
+                              ? atoi(findparameter_arg("-listenport"))
+                              : config.neth_listenport,
+                              (findparameter_arg("-netpassword") != NULL)
+                              ? findparameter_arg("-netpassword")
+                              : config.neth_password,
+                              foverlay);
+    }
 
     if (loading_texts) {
         printf("\nLoading complete. Press a key to continue.");
         fflush(stdout);
     }
 
-    n1 = 0;
-    while (!n1 && !findparameter("-autostart")) {
-        if (kbhit())
-            break;
-
-        koords(&x, &y, &n1, &n2);
-
-        if (n1 || n2) {
-            wait_mouse_relase();
-            break;
-        }
-
-    }
-
-    while (kbhit() && !findparameter("-autostart"))
-        getch();
-
+    if (!findparameter("-autostart"))
+        wait_press_and_release();
 
     if (sfx_loaded) {
         sample_alku->right_volume = 0;
@@ -3745,21 +3837,9 @@ int main(int argc, char *argv[]) {
 
     delete lakuva1;
 
-
-    while (!kbhit() && !findparameter("-autostart")) {
-        koords(&x, &y, &n1, &n2);
-
-        if (n1 || n2) {
-            wait_mouse_relase();
-            break;
-        }
-
-    }
+    if (!findparameter("-autostart"))
+        wait_press_and_release();
 #endif
-
-    while (kbhit() && !findparameter("-autostart"))
-        getch();
-
 
     loading_text("Loading roster.");
     load_roster();
@@ -3768,8 +3848,54 @@ int main(int argc, char *argv[]) {
     if (!findparameter("-debugnographics"))
         init_vga("PALET5");
 
-    while (kbhit())
-        getch();
+    wait_mouse_relase();
+
+    if (findparameter_arg("-netclient") != NULL) {
+        const char *host = findparameter_arg("-netclient");
+        int port = config.netc_port;
+        char playername[21];
+        char password[21];
+
+        strncpy(playername, config.netc_playername, 20);
+        playername[20] = 0;
+        strncpy(password, config.netc_password, 20);
+        password[20] = 0;
+
+        if (findparameter_arg("-port") != NULL) {
+            port = atoi(findparameter_arg("-port"));
+        }
+        if (findparameter_arg("-netplayer") != NULL) {
+            strncpy(playername, findparameter_arg("-netplayer"), 20);
+            playername[20] = 0;
+        }
+        if (findparameter_arg("-netpassword") != NULL) {
+            strncpy(password, findparameter_arg("-netpassword"), 20);
+            password[20] = 0;
+        }
+
+        if (findparameter_arg("-netcontrol") != NULL) {
+            if (config.netc_solo_controls < 0 ||
+                !roster[config.netc_solo_controls].pilotname[0])
+                config.netc_solo_controls = 0;
+            if (!roster[config.netc_solo_controls].pilotname[0]) {
+                fprintf(stderr, "Please add a pilot to the roster for the -netcontol option!\n");
+            } else {
+                if (strcmp(findparameter_arg("-netcontrol"), "r") == 0)
+                    netclient_activate_controls(0, config.netc_solo_controls);
+                else if (strcmp(findparameter_arg("-netcontrol"), "b") == 0)
+                    netclient_activate_controls(1, config.netc_solo_controls);
+                else if (strcmp(findparameter_arg("-netcontrol"), "g") == 0)
+                    netclient_activate_controls(2, config.netc_solo_controls);
+                else if (strcmp(findparameter_arg("-netcontrol"), "y") == 0)
+                    netclient_activate_controls(3, config.netc_solo_controls);
+            }
+        }
+
+        netclient_loop(host, port, playername, password);
+
+        clean_memory();
+        return 0;
+    }
 
     main_menu();
     save_roster();
@@ -3816,6 +3942,8 @@ int main(int argc, char *argv[]) {
     }
 
     save_config();
+
+    network_quit();
 
     clean_memory();
 

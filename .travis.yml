@@ -15,6 +15,7 @@ matrix:
             - g++-8
             - libsdl2-dev
             - libsdl2-mixer-dev
+            - zlib1g-dev
       before_install:
         - CC=gcc-8 && CXX=g++-8
     - os: linux
@@ -27,6 +28,7 @@ addons:
     packages:
       - libsdl2-dev
       - libsdl2-mixer-dev
+      - zlib1g-dev
   homebrew:
     packages:
       - sdl2
@@ -47,6 +49,17 @@ before_install:
 
       export SDL2DIR="C:/SDL2/SDL2-$SDL2_VERSION"
       export SDL2MIXERDIR="C:/SDL2/SDL2_mixer-$SDL2_MIXER_VERSION"
+
+      git clone https://github.com/kiyolee/zlib-win-build.git
+      export ZLIB_INCLUDE_DIR="${PWD}/zlib-win-build/"
+
+      pushd .
+      cd ./zlib-win-build/build-VS2017-MT/
+      MSBUILD=$(find /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/ -name MSBuild.exe | grep -v amd64)
+      "${MSBUILD}" -p:Configuration=Release
+
+      export ZLIB_LIBRARY="${PWD}/Release/libz.lib"
+      popd
     fi
 
 script:

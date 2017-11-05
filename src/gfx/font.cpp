@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-Font::Font(const char *font_name) {
+Font::Font(const char *font_name, int fgcolor, int outlinecolor) {
     int temp;
     int temppi;
     int kokox, kokoy;
@@ -32,7 +32,9 @@ Font::Font(const char *font_name) {
     Bitmap *valikuva;
 
     scaled = 0;
-    scaled_space = 3;
+    scaled_space = 2;
+    charspace = 1;
+    linespace = 0;
 
     for (temppi = 0; temppi < 256; temppi++)
         glyphs[temppi] = NULL;
@@ -61,6 +63,23 @@ Font::Font(const char *font_name) {
                 glyphs[temp] = NULL;
         }
 
+    if (fgcolor != -1) {
+        for (temp = 0; temp < 256; temp++)
+            if (glyphs[temp] != NULL)
+                glyphs[temp]->recolor(0, fgcolor);
+    }
+
+    if (outlinecolor != -1) {
+        for (temp = 0; temp < 256; temp++)
+            if (glyphs[temp] != NULL)
+                glyphs[temp]->outline(outlinecolor);
+        width += 2;
+        height += 2;
+        charspace--;
+        charspace--; // to compensate for count_scale ignoring outline
+        linespace--;
+    }
+
     count_scale();
 }
 
@@ -79,6 +98,11 @@ void Font::set_space(int space) {
     scaled_space = space;
 }
 
+void Font::set_spacing(int charspace_, int linespace_) {
+    charspace = charspace_;
+    linespace = linespace_;
+}
+
 int Font::printf(int x, int y, const char *fmt, ...) {
     int temp = 0;
     int xkohta = 0;
@@ -92,33 +116,33 @@ int Font::printf(int x, int y, const char *fmt, ...) {
     if (!scaled) {
         while (teksti[temp]) {
             if (teksti[temp] == '\n') {
-                y += height;
+                y += height + linespace;
                 xkohta = 0;
             } else {
                 if (glyphs[(unsigned char) teksti[temp]] != NULL) {
                     glyphs[(unsigned char) teksti[temp]]->blit(x + xkohta, y);
 
                 }
-                xkohta += width + 1;
+                xkohta += width + charspace;
             }
             temp++;
         }
 
-        return (x + temp * (width + 1));
+        return (x + temp * (width + charspace));
     }
 
     while (teksti[temp]) {
         if (teksti[temp] == '\n') {
-            y += height;
+            y += height + linespace;
             xkohta = 0;
         }
 
         else {
             if ((glyphs[(unsigned char) teksti[temp]] != NULL) && ((unsigned char) teksti[temp] != 32)) {
                 glyphs[(unsigned char) teksti[temp]]->blit(x + xkohta - char_start[(unsigned char) teksti[temp]], y);
-                xkohta += char_width[(unsigned char) teksti[temp]];
+                xkohta += char_width[(unsigned char) teksti[temp]] + charspace;
             } else {
-                xkohta += scaled_space;
+                xkohta += scaled_space + charspace;
             }
 
 
@@ -146,11 +170,11 @@ int Font::scanf(int x, int y, char *str, int max_len) {
         tausta_roska->blit(x, y);
         printf(printf(x, y, "%s", str), y, "_");
         do_all();
+        if (!kbhit()) {
+            continue;
+        }
         ch = getch();
-        if (!ch) {
-            getch();
-            ch = 0;
-        } else if (ch != 13) {
+        if (ch != 0 && ch != 13) {
             if (ch == 8) {
                 if (kohta) {
                     kohta--;
@@ -214,6 +238,7 @@ void Font::count_scale(void) {
                 char_width[temp] = valileveys - char_start[temp] + 2;
             }
 
+            char_width[temp]--;
         }
 }
 

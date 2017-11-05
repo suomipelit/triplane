@@ -21,6 +21,7 @@
 #ifndef FONT_H
 #define FONT_H
 
+#include "gfx/bitmap.h"
 
 class Font {
   private:
@@ -31,9 +32,11 @@ class Font {
     int char_start[256];
     int scaled;
     int scaled_space;
+    int charspace;
+    int linespace;
 
   public:
-      Font(const char *font_name);
+      Font(const char *font_name, int fgcolor=-1, int outlinecolor=-1);
      ~Font();
     int printf(int x, int y, const char *fmt, ...);
     int scanf(int x, int y, char *str, int max_len);
@@ -41,6 +44,7 @@ class Font {
     void unscale(void);
     void count_scale(void);
     void set_space(int space);
+    void set_spacing(int charspace_=1, int linespace_=0);
 };
 
 #endif

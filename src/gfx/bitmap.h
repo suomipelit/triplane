@@ -31,10 +31,16 @@ class Bitmap {
     int16_t width, height;
     int external_image_data;    // boolean: is image_data owned by this instance
     int hastransparency;
+    int id;                     // a unique ID for this Bitmap
+    int data_sent;              // has image_data been sent to the network?
 
   public:
       Bitmap(const char *image_name, int transparent = 1);
-      Bitmap(int xl, int yl, unsigned char *image_data, const char *name = "unknown");
+      Bitmap(int xl, int yl,
+             unsigned char *image_data,
+             const char *name = "unknown",
+             int hastransparency = 1,
+             int copy_image_data = 0);
       Bitmap(int x1, int y1, int xl, int yl, Bitmap * source_image);
       Bitmap(int x, int y, int w, int h);
      ~Bitmap();
@@ -42,9 +48,22 @@ class Bitmap {
     void blit(int xx, int yy, int rx = 0, int ry = 0, int rx2 = 319, int ry2 = 199);
     void blit_fullscreen(void);
     void blit_to_bitmap(Bitmap * to, int xx, int yy);
+    void recolor(unsigned char oldcolor, unsigned char newcolor);
+    void outline(unsigned char outlinecolor);
+
     unsigned char *info(int *width = NULL, int *height = NULL);
+    void clear_data_sent();
+    void send_bitmapdata();
+    void resend_bitmapdata();
+
+ private:
+    void blit_data(int tox, int toy,
+                   const unsigned char *data, int w, int h,
+                   int mask_color=-1);
 };
 
+void all_bitmaps_resend_if_sent(void);
+void all_bitmaps_send_now(void);
 Bitmap *rotate_bitmap(Bitmap * picture, int degrees);
 int bitmap_exists(const char *name);
 

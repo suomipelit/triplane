@@ -22,9 +22,10 @@
 #include <string.h>
 #include "gfx/fades.h"
 #include "gfx/gfx.h"
+#include "io/network.h"
 #include "util/wutil.h"
 
-void horisontal_split(void) {
+static void horisontal_split(void) {
     Bitmap *upper;
     Bitmap *lower;
     int c1, c2 = 1;
@@ -47,7 +48,7 @@ void horisontal_split(void) {
 
 }
 
-void vertical_split() {
+static void vertical_split() {
     Bitmap *left;
     Bitmap *right;
     int c1, c2;
@@ -73,7 +74,7 @@ void vertical_split() {
 
 }
 
-void pixel_fade(void) {
+static void pixel_fade(void) {
     int c1, c2;
 
     for (c1 = 0; c1 < 20; c1++) {
@@ -89,7 +90,7 @@ void pixel_fade(void) {
 
 }
 
-void partial_fade(void) {
+static void partial_fade(void) {
     unsigned char next_color[256];
     int hit_value, temp_hit_value;
     int c, c2, c3, temp;
@@ -134,15 +135,17 @@ void partial_fade(void) {
     do_all();
 }
 
-void random_fade_out(void) {
-    int t;
+void selected_fade_out(int t) {
+    int display_was_enabled;
 
-    t = wrandom(5);
+    netsend_fade_out(t);
 
     if (current_mode == SVGA_MODE) {
         do_all_clear();
         return;
     }
+
+    display_was_enabled = network_display_enable(0);
 
     switch (t) {
     case 0:
@@ -166,6 +169,12 @@ void random_fade_out(void) {
         break;
     }
 
+    network_display_enable(display_was_enabled);
+}
 
+void random_fade_out(void) {
+    int t;
 
+    t = wrandom(5);
+    selected_fade_out(t);
 }

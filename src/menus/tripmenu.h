@@ -40,10 +40,10 @@ void options_menu(void);
 void controls_menu(void);
 int kangas_menu(void);
 int solo_player_menu(void);
+void netgame_menu(void);
 
 void print_clear_roster(Bitmap * rosteri);
 void print_filled_roster(int number);
-void wait_mouse_relase(int nokb = 0);
 void load_descriptions(int number);
 void show_descriptions(int number);
 void sort_and_show(int percent = 0);
@@ -54,6 +54,5 @@ void aces_multi_total(void);
 void aces_solo_total(void);
 void aces_one_solo(int country, int mission);
 int calculate_multitotal(int player);
-void show_feat5(void);
 
 #endif

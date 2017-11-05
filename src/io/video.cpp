@@ -20,6 +20,7 @@
 
 #include "io/video.h"
 #include "io/dksfile.h"
+#include "io/network.h"
 #include "util/wutil.h"
 #include <SDL.h>
 #include <signal.h>
@@ -29,7 +30,7 @@
 #include <assert.h>
 #include <string.h>
 
-struct video_state_t video_state = { NULL, 0, 0 };
+struct video_state_t video_state = { NULL, NULL, NULL, NULL, 0 };
 
 struct naytto ruutu;
 
@@ -50,6 +51,11 @@ void setpal_range(const char pal[][3], int firstcolor, int n, int reverse) {
     SDL_Color *cc = (SDL_Color *) walloc(n * sizeof(SDL_Color));
     int i, from = (reverse ? n - 1 : 0);
 
+    if (pal == NULL)
+        netsend_setpal_range_black(firstcolor, n);
+    else
+        netsend_setpal_range(pal, firstcolor, n, reverse ? 1 : 2);
+
     for (i = 0; i < n; i++) {
         if (pal == NULL) {
             cc[i].r = cc[i].g = cc[i].b = 0;
@@ -58,6 +64,7 @@ void setpal_range(const char pal[][3], int firstcolor, int n, int reverse) {
             cc[i].g = 4 * pal[from][1];
             cc[i].b = 4 * pal[from][2];
         }
+        cc[i].a = 255;
         if (reverse)
             from--;
         else
@@ -70,7 +77,24 @@ void setpal_range(const char pal[][3], int firstcolor, int n, int reverse) {
     wfree(cc);
 }
 
+void netsend_mode_and_curpal(void) {
+    char pal[256][3];
+    int i;
+
+    netsend_videomode(current_mode);
+
+    for (i = 0; i < 256; i++) {
+        pal[i][0] = curpal[i].r;
+        pal[i][1] = curpal[i].g;
+        pal[i][2] = curpal[i].b;
+    }
+
+    netsend_setpal_range(pal, 0, 256, 0);
+}
+
 void fillrect(int x, int y, int w, int h, int c) {
+    netsend_fillrect(x, y, w, h, c);
+	
     SDL_Rect r;
     r.x = x;
     r.y = y;
@@ -80,6 +104,9 @@ void fillrect(int x, int y, int w, int h, int c) {
 }
 
 void do_all(int do_retrace) {
+    // this code is called at the end of every displayed frame
+    network_print_serverinfo();
+
     /* Blit 8-bit surface to 32-bit surface */
     SDL_BlitSurface(video_state.surface, NULL, video_state.displaySurface, NULL);
 
@@ -100,6 +127,8 @@ void do_all(int do_retrace) {
     /* Render texture to display */
     SDL_RenderCopy(video_state.renderer, video_state.texture, NULL, NULL);
     SDL_RenderPresent(video_state.renderer);
+    netsend_endofframe();
+    network_update();
 }
 
 static void sigint_handler(int dummy) {
@@ -217,6 +246,7 @@ static int init_mode(int new_mode, const char *paletname) {
 
     dksclose();
 
+    netsend_videomode(new_mode);
     setpal_range(ruutu.paletti, 0, 256);
 
     current_mode = new_mode;

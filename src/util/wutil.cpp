@@ -20,6 +20,8 @@
 
 #include "wutil.h"
 #include <assert.h>
+#include <cstring>
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "triplane.h"
@@ -36,6 +38,9 @@ int32_t sinit[SIN_COS_NRO];
 int32_t asinit[ASIN_NRO];
 
 static int trigs_initialized = 0;
+
+static int saved_argc = 0;
+static char **saved_argv = NULL;
 
 void setwrandom(int seed) {
     triplane_srandom(seed);
@@ -238,4 +243,57 @@ int squareroot(int number) {
 
     return new_result;
 
+}
+
+void findparameter_init(int argc, char **argv) {
+    saved_argc = argc;
+    saved_argv = argv;
+}
+
+int findparameter(const char *jono) {
+    int laskuri;
+
+    for (laskuri = 1; laskuri < saved_argc; laskuri++)
+        if (!strncmp(saved_argv[laskuri], jono, strlen(jono)))
+            return (laskuri);
+
+    return (0);
+}
+
+const char *findparameter_arg(const char *jono) {
+    int laskuri;
+
+    for (laskuri = 1; laskuri < saved_argc; laskuri++)
+        if (!strncmp(saved_argv[laskuri], jono, strlen(jono)))
+            break;
+
+    if (laskuri + 1 < saved_argc)
+        return saved_argv[laskuri + 1];
+    else
+        return NULL;
+}
+
+// Is ch a normal printable character?
+// (used to limit network player names and chat messages)
+// should be a subset of the characters accepted by frost->scanf
+int printable_char(int ch) {
+    return (ch >= 32 && ch <= 126);
+}
+
+// Is s an alphanumeric string of length 0 to len-1?
+int check_strict_string(const char *s, int len) {
+    int i;
+    for (i = 0; i < len && s[i] != '\0'; i++)
+        if (!isalnum(s[i]))
+            return 0;
+    return (i < len);
+}
+
+// Is s a printable string of length 0 to len-1?
+int check_printable_string(const char *s, int len) {
+    int i;
+    for (i = 0; i < len && s[i] != '\0'; i++)
+        if (!printable_char(s[i]))
+            return 0;
+    return (i < len);
 }

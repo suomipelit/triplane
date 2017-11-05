@@ -21,6 +21,7 @@
 #include <triplane.h>
 #include <SDL.h>
 #include <SDL_endian.h>
+#include "io/sdl_compat.h"
 #include "io/sound.h"
 #include "io/timing.h"
 #include <sys/types.h>
@@ -124,13 +125,13 @@ void wait_relase(void) {
     }
 }
 
-int select_key(int player, int old) {
+int select_key(int old) {
     int c;
     int flag = 1;
 
-    while (flag) {
+    while (1) {
         if (is_key(SDLK_ESCAPE))
-            flag = 0;
+            return old;
 
         update_key_state();
         c = last_key();
@@ -140,15 +141,9 @@ int select_key(int player, int old) {
                 wait_relase();
                 return c;
             }
-        if (player == 100)
-            return 100;
 
         nopeuskontrolli();
     }
-
-    wait_relase();
-    return old;
-
 }
 
 void swap_roster_endianes(void) {
@@ -403,6 +398,14 @@ void save_roster(void) {
     swap_roster_endianes();
 }
 
+static void clean_string(char *s, int len) {
+    int sl;
+
+    s[len - 1] = '\0';
+    sl = strlen(s);
+    memset(s + sl, 0, len - sl);
+}
+
 void swap_config_endianes(void) {
     int i;
     config.current_multilevel = SDL_SwapLE32(config.current_multilevel);
@@ -453,6 +456,16 @@ void swap_config_endianes(void) {
 
     config.joystick[1] = SDL_SwapLE32(config.joystick[1]);
     config.joystick_calibrated[1] = SDL_SwapLE32(config.joystick_calibrated[1]);
+
+    clean_string(config.netc_host, 80);
+    config.netc_port = SDL_SwapLE32(config.netc_port);
+    clean_string(config.netc_password, 40);
+    clean_string(config.netc_playername, 40);
+    config.netc_solo_controls = SDL_SwapLE32(config.netc_solo_controls);
+
+    clean_string(config.neth_listenaddr, 80);
+    config.neth_listenport = SDL_SwapLE32(config.neth_listenport);
+    clean_string(config.neth_password, 40);
 }
 
 void load_config(void) {
@@ -509,6 +522,20 @@ void load_config(void) {
 
     config.joystick[1] = -1;
     config.joystick_calibrated[1] = 0;
+
+    memset(config.netc_host, 0, 80);
+    config.netc_port = 9763;
+    memset(config.netc_password, 0, 40);
+    strcpy(config.netc_password, "triplane");
+    memset(config.netc_playername, 0, 40);
+    strcpy(config.netc_playername, "netplayer");
+    config.netc_solo_controls = 1;
+
+    memset(config.neth_listenaddr, 0, 80);
+    strcpy(config.neth_listenaddr, "0.0.0.0");
+    config.neth_listenport = 9763;
+    memset(config.neth_password, 0, 40);
+    strcpy(config.neth_password, "triplane");
 
     faili = settings_open(CONFIGURATION_FILENAME, "rb");
 

@@ -23,8 +23,34 @@ if(NOT EXISTS "${CMAKE_BINARY_DIR}/cmake-modules/FindSDL2_mixer.cmake")
         "${CMAKE_BINARY_DIR}/cmake-modules/FindSDL2_mixer.cmake")
 endif()
 
+if(DEFINED ENV{ZLIB_INCLUDE_DIR})
+    set(ZLIB_INCLUDE_DIR $ENV{ZLIB_INCLUDE_DIR})
+endif()
+
+if(DEFINED ENV{ZLIB_LIBRARY})
+    set(ZLIB_LIBRARY $ENV{ZLIB_LIBRARY})
+endif()
+
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/cmake-modules/FindZLIB.cmake")
+    file(DOWNLOAD "https://raw.githubusercontent.com/Kitware/CMake/master/Modules/FindZLIB.cmake"
+        "${CMAKE_BINARY_DIR}/cmake-modules/FindZLIB.cmake")
+endif()
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/cmake-modules/SelectLibraryConfigurations.cmake")
+    file(DOWNLOAD "https://raw.githubusercontent.com/Kitware/CMake/master/Modules/SelectLibraryConfigurations.cmake"
+        "${CMAKE_BINARY_DIR}/cmake-modules/SelectLibraryConfigurations.cmake")
+endif()
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/cmake-modules/FindPackageHandleStandardArgs.cmake")
+    file(DOWNLOAD "https://raw.githubusercontent.com/Kitware/CMake/master/Modules/FindPackageHandleStandardArgs.cmake"
+        "${CMAKE_BINARY_DIR}/cmake-modules/FindPackageHandleStandardArgs.cmake")
+endif()
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/cmake-modules/FindPackageMessage.cmake")
+    file(DOWNLOAD "https://raw.githubusercontent.com/Kitware/CMake/master/Modules/FindPackageMessage.cmake"
+        "${CMAKE_BINARY_DIR}/cmake-modules/FindPackageMessage.cmake")
+endif()
+
 find_package(SDL2 REQUIRED)
 find_package(SDL2_mixer REQUIRED)
+find_package(ZLIB REQUIRED)
 
 # Compiler flags
 if (MSVC)
@@ -43,6 +69,8 @@ set(COMMON_DEFINITIONS
 
 # Common library
 add_library(common STATIC
+    src/io/network.cpp
+    src/io/network.h
     src/gfx/bitmap.cpp
     src/gfx/bitmap.h
     src/gfx/font.cpp
@@ -66,7 +94,9 @@ add_library(common STATIC
 
 if (MSVC)
     target_sources(common PRIVATE
-        src/util/msvc.h)
+        src/util/msvc.h
+        src/io/network_win.cpp
+        src/io/network_win.h)
 endif()
 
 target_compile_definitions(common PRIVATE
@@ -75,11 +105,18 @@ target_compile_definitions(common PRIVATE
 target_include_directories(common SYSTEM PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${SDL2_MIXER_INCLUDE_DIR}
-    ${SDL2_INCLUDE_DIR})
+    ${SDL2_INCLUDE_DIR}
+    ${ZLIB_INCLUDE_DIRS})
 
 target_link_libraries(common
     ${SDL2_LIBRARY}
-    ${SDL2_MIXER_LIBRARIES})
+    ${SDL2_MIXER_LIBRARIES}
+    ${ZLIB_LIBRARIES})
+
+if (MSVC)
+    target_link_libraries(common
+        ws2_32)
+endif()
 
 # DKS data packet creation tool
 add_executable(dksbuild
@@ -97,6 +134,10 @@ add_custom_target(generate-dks
 
 # Triplane executable
 add_executable(${PROJECT_NAME}
+    src/io/netclient.cpp
+    src/io/netclient.h
+    src/menus/menusupport.cpp
+    src/menus/menusupport.h
     src/gfx/extra.cpp
     src/gfx/extra.h
     src/gfx/fades.cpp

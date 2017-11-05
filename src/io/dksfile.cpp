@@ -160,7 +160,6 @@ int dksopen(const char *nimi) {
 int extdksopen(const char *nimi) {
     int lask;
     int kohta = -1;
-    int faili = 0;
 
     for (lask = 0; lask < MAX_ENTRIES; lask++) {
         if (!strcmp(dirri[lask].nimi, nimi)) {
@@ -171,7 +170,6 @@ int extdksopen(const char *nimi) {
 
     if (kohta == -1) {
         dks_faili = fopen(nimi, "rb");
-        faili = 1;
         if (dks_faili == NULL)
             return (0);
     } else {

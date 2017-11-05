@@ -27,7 +27,7 @@
 
 /* Variables */
 
-unsigned char controls_up[16], controls_down[16], controls_power[16], controls_power2[16];
+unsigned char controls_up[16], controls_down[16], controls_power[16];
                 /* Note: 1== enable, 0== disable */
 int player_x[16], player_y[16];
 int player_speed[16];

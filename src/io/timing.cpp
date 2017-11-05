@@ -20,6 +20,7 @@
 
 #include <SDL.h>
 #include <assert.h>
+#include "io/network.h"
 #include "sdl_compat.h"
 
 static int enabled = 1;
@@ -29,6 +30,7 @@ void nopeuskontrolli(int fps) {
     uint32_t target_tick;
 
     if (!enabled) {
+        network_update();
         return;
     }
 
@@ -46,6 +48,8 @@ void nopeuskontrolli(int fps) {
     if (SDL_GetTicks() > viimeinen_aika + 1000 / fps) {
         viimeinen_aika = SDL_GetTicks();
     }
+
+    network_update();
 }
 
 void nopeuskontrolli_enable(int enable) {

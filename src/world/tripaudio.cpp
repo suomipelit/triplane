@@ -26,6 +26,7 @@
 
 sb_mod_file *triplane_mod;
 sb_mod_file *aces_mod;
+sb_mod_file *national_mod[4];
 
 sb_sample *sample_itexp[3];
 sb_sample *sample_bomb[4];
@@ -182,6 +183,10 @@ void load_music(void) {
 
     triplane_mod = sdl_load_mod_file("music1");
     aces_mod = sdl_load_mod_file("maces");
+    national_mod[0] = sdl_load_mod_file("mgerma");
+    national_mod[1] = sdl_load_mod_file("mfinla");
+    national_mod[2] = sdl_load_mod_file("mengla");
+    national_mod[3] = sdl_load_mod_file("mjapan");
 }
 
 void clear_sfx(void) {

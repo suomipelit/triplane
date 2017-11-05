@@ -20,6 +20,9 @@
 
 #include <SDL.h>
 #include <ctype.h>
+#include <string.h>
+#include "io/network.h"
+#include "io/video.h"
 
 #ifdef HAVE_SDL_MIXER
 /* 
@@ -69,12 +72,24 @@ void set_fullscreen(int fullscreen) {
     SDL_SetWindowFullscreen(video_state.window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 }
 
+#define MAX_LOADED_SAMPLES 50
+#define MAX_LOADED_MUSICS  10
+
+static sb_sample *loaded_samples[MAX_LOADED_SAMPLES];
+static int next_free_sample = 0;
+static sb_mod_file *loaded_musics[MAX_LOADED_MUSICS];
+static int next_free_music = 0;
+
+const Uint8 *key = NULL;
+int key_size = 0;
+
 int kbhit(void) {
     SDL_Event e;
     int ret;
 
     nopeuskontrolli();
 
+    SDL_PumpEvents();
     ret = SDL_PeepEvents(&e, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
     if (ret) {
         switch (e.type)
@@ -98,24 +113,25 @@ int kbhit(void) {
 int getch(void) {
     SDL_Event e;
 
-    for (;;) {
-        if (SDL_PollEvent(&e)) {
-            if (e.type == SDL_KEYUP) {
-                int s, m;
-                s = e.key.keysym.sym;
-                m = e.key.keysym.mod;
-                if (s == SDLK_RSHIFT || s == SDLK_LSHIFT) {
-                    continue;
-                }
-                if (m == KMOD_LSHIFT || m == KMOD_RSHIFT) {
-                    if (s >= SDLK_a && s <= SDLK_z) {
-                        s = toupper(s);
-                    }
-                }
-                return s;
+    SDL_PumpEvents();
+    while (SDL_PollEvent(&e)) {
+        if (e.type == SDL_KEYUP) {
+            int s, m;
+            s = e.key.keysym.sym;
+            m = e.key.keysym.mod;
+            if (s == SDLK_RSHIFT || s == SDLK_LSHIFT) {
+                continue;
             }
+            if (m == KMOD_LSHIFT || m == KMOD_RSHIFT) {
+                if (s >= SDLK_a && s <= SDLK_z) {
+                    s = toupper(s);
+                }
+            }
+	    return s;
         }
     }
+
+    return 0;                   // no key was found
 }
 
 Key *find_key(SDL_Keycode keycode) {
@@ -259,6 +275,24 @@ void sdl_play_sample(sb_sample * sample, int looping) {
     }
 
     Mix_SetPanning(ch, l, r);
+    netsend_play_sample(sample->name, sample->left_volume,
+                        sample->right_volume, looping);
+#endif
+}
+
+void sdl_play_sample_named(const char *samplename,
+                           int leftvol, int rightvol, int looping) {
+#ifdef HAVE_SDL_MIXER
+    int i;
+
+    for (i = 0; i < next_free_sample; i++) {
+        if (strcmp(loaded_samples[i]->name, samplename) == 0) {
+            loaded_samples[i]->left_volume = leftvol;
+            loaded_samples[i]->right_volume = rightvol;
+            sdl_play_sample(loaded_samples[i], looping);
+            break;
+        }
+    }
 #endif
 }
 
@@ -266,6 +300,7 @@ void sdl_play_sample(sb_sample * sample, int looping) {
 void sdl_stop_all_samples(void) {
 #ifdef HAVE_SDL_MIXER
     Mix_HaltChannel(-1);
+    netsend_stop_all_samples();
 #endif
 }
 
@@ -294,6 +329,8 @@ sb_sample *sdl_sample_load(const char *name) {
     dksclose();
 
     sample = (sb_sample *) walloc(sizeof(sb_sample));
+    memset(sample->name, 0, 7);
+    strncpy(sample->name, name, 6);
 
     sample->chunk = Mix_LoadWAV_RW(SDL_RWFromConstMem(p, len), 1);
     if (sample->chunk == NULL) {
@@ -302,6 +339,9 @@ sb_sample *sdl_sample_load(const char *name) {
     }
 
     free(p);
+
+    assert(next_free_sample < MAX_LOADED_SAMPLES);
+    loaded_samples[next_free_sample++] = sample;
 
     return sample;
 #else
@@ -315,8 +355,20 @@ sb_sample *sdl_sample_load(const char *name) {
  */
 void sdl_free_sample(sb_sample * sample) {
 #ifdef HAVE_SDL_MIXER
+    int i;
+
     Mix_FreeChunk(sample->chunk);
     free(sample);
+
+    for (i = 0; i < next_free_sample; i++) {
+        if (loaded_samples[i] == sample) {
+            memmove(&loaded_samples[i],
+                    &loaded_samples[i+1],
+                    (next_free_sample - i - 1) * sizeof(sb_sample *));
+            next_free_sample--;
+            break;
+        }
+    }
 #endif
 }
 
@@ -341,16 +393,20 @@ sb_mod_file *sdl_load_mod_file(const char *name) {
     dksclose();
 
     mod = (sb_mod_file *) walloc(sizeof(sb_mod_file));
+    memset(mod->name, 0, 7);
+    strncpy(mod->name, name, 6);
 
     rwops = SDL_RWFromConstMem(p, len);
-    mod->music = Mix_LoadMUS_RW(rwops, 0);
-    SDL_FreeRW(rwops);
+    mod->music = Mix_LoadMUSType_RW(rwops, MUS_MOD, SDL_TRUE);
     if (mod->music == NULL) {
         fprintf(stderr, "sdl_load_mod_file: %s\n", Mix_GetError());
         exit(1);
     }
 
     free(p);
+
+    assert(next_free_music < MAX_LOADED_MUSICS);
+    loaded_musics[next_free_music++] = mod;
 
     return mod;
 #else
@@ -360,8 +416,20 @@ sb_mod_file *sdl_load_mod_file(const char *name) {
 
 void sdl_free_mod_file(sb_mod_file * mod) {
 #ifdef HAVE_SDL_MIXER
+    int i;
+
     Mix_FreeMusic(mod->music);
     free(mod);
+
+    for (i = 0; i < next_free_music; i++) {
+        if (loaded_musics[i] == mod) {
+            memmove(&loaded_musics[i],
+                    &loaded_musics[i+1],
+                    (next_free_music - i - 1) * sizeof(sb_mod_file *));
+            next_free_music--;
+            break;
+        }
+    }
 #endif
 }
 
@@ -369,11 +437,26 @@ void sdl_play_music(sb_mod_file * mod) {
 #ifdef HAVE_SDL_MIXER
     sdl_stop_all_samples();
     Mix_PlayMusic(mod->music, 1);
+    netsend_play_music(mod->name);
+#endif
+}
+
+void sdl_play_music_named(const char *modname) {
+#ifdef HAVE_SDL_MIXER
+    int i;
+
+    for (i = 0; i < next_free_music; i++) {
+        if (strcmp(loaded_musics[i]->name, modname) == 0) {
+            sdl_play_music(loaded_musics[i]);
+            break;
+        }
+    }
 #endif
 }
 
 void sdl_stop_music(void) {
 #ifdef HAVE_SDL_MIXER
     Mix_HaltMusic();
+    netsend_stop_music();
 #endif
 }

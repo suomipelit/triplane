@@ -21,6 +21,7 @@
 #ifndef FADES_H
 #define FADES_H
 
+void selected_fade_out(int t);
 void random_fade_out(void);
 
 #endif

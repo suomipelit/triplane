@@ -22,7 +22,7 @@
 #define PLANE_H
 
 /* Note: 1== enabled, 0== disabled */
-extern unsigned char controls_up[16], controls_down[16], controls_power[16], controls_power2[16];
+extern unsigned char controls_up[16], controls_down[16], controls_power[16];
 
 extern int player_x[16], player_y[16];
 extern int player_speed[16];

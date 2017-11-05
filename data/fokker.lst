@@ -68,6 +68,7 @@ data/menus/roster.pgd
 data/misc/score.pgd
 data/misc/lappu1.pgd
 data/misc/lappu2.pgd
+data/menus/netmenu.pgd
 ;SFX
 data/sfx/aargh1.wav Die1
 data/sfx/aargh2.wav Die2

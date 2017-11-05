@@ -157,15 +157,22 @@ struct configuration {
     int32_t joystick[2];
     int32_t joystick_calibrated[2];
 
+    char netc_host[80];
+    int32_t netc_port;
+    char netc_password[40];
+    char netc_playername[40];
+    int32_t netc_solo_controls;
 
+    char neth_listenaddr[80];
+    int32_t neth_listenport;
+    char neth_password[40];
 };
 
 extern configuration config;
 
 void load_keyset(void);
 void save_keyset(void);
-int select_key(int player, int old);
-void wait_relase(void);
+int select_key(int old);
 
 void load_roster(void);
 void save_roster(void);

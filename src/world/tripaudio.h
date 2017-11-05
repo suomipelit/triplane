@@ -25,6 +25,7 @@
 
 extern sb_mod_file *triplane_mod;
 extern sb_mod_file *aces_mod;
+extern sb_mod_file *national_mod[4];
 
 extern sb_sample *sample_itexp[3];
 extern sb_sample *sample_bomb[4];

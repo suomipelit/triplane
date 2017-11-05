@@ -28,8 +28,6 @@
 
 #define SAMPLE_VOLUME 20
 
-#define PAUSE_KEY SDLK_PAUSE
-
 #define SOUNDCARD_NONE 0
 #define SOUNDCARD_GUS  1
 #define SOUNDCARD_SB   2
@@ -41,6 +39,7 @@ int kbhit(void);
 int getch(void);
 
 typedef struct {
+    char name[7];
     int right_volume, left_volume;
 #ifdef HAVE_SDL_MIXER
     Mix_Chunk *chunk;
@@ -48,6 +47,7 @@ typedef struct {
 } sb_sample;
 
 typedef struct {
+    char name[7];
 #ifdef HAVE_SDL_MIXER
     Mix_Music *music;
 #endif
@@ -57,9 +57,13 @@ bool is_key(SDL_Keycode key);
 bool is_any_key(void);
 SDL_Keycode last_key(void);
 void update_key_state(void);
+void wait_relase(void);
+
 int sdl_init_sounds(void);
 void sdl_uninit_sounds(void);
 void sdl_play_sample(sb_sample * sample, int looping = 0);
+void sdl_play_sample_named(const char *samplename,
+                           int leftvol, int rightvol, int looping);
 void sdl_stop_all_samples(void);
 sb_sample *sdl_sample_load(const char *name);
 void sdl_free_sample(sb_sample * sample);
@@ -67,6 +71,7 @@ void sdl_free_sample(sb_sample * sample);
 sb_mod_file *sdl_load_mod_file(const char *name);
 void sdl_free_mod_file(sb_mod_file * mod);
 void sdl_play_music(sb_mod_file * mod);
+void sdl_play_music_named(const char *modname);
 void sdl_stop_music(void);
 
 #endif

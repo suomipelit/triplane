@@ -32,6 +32,7 @@
 #include "gfx/bitmap.h"
 #include "gfx/gfx.h"
 #include "io/trip_io.h"
+#include "io/network.h"
 #include "util/wutil.h"
 #include <assert.h>
 #include <SDL.h>
@@ -39,70 +40,70 @@
 
 #define RLE_REPETITION_MARK 192
 
-#define MAX_BITMAPS 8192
+#define MAX_BITMAPS 8192        /* must be <= 65536 for netsend */
 Bitmap *all_bitmaps[MAX_BITMAPS];
-int all_bitmaps_n = 0;
+int all_bitmaps_last_alloc = -1;
 
 unsigned char *pointti;
 
-/* Make a copy of the image data in source, enlarged zoom times */
-static unsigned char *duplicate_enlarged(const unsigned char *source, int width, int height, int zoom) {
-    uint8_t *target = (uint8_t *) walloc(width * height * zoom * zoom);
-    int i, j, k;
-    const uint8_t *in = source;
-    uint8_t *out = target;
+static int all_bitmaps_add(Bitmap * b) {
+    int wrapped = 0;
 
-    /* optimized versions using 32-bit and 16-bit writes when possible */
-    if (zoom == 4 && sizeof(char *) >= 4) {     /* word size >= 4 */
-        uint32_t cccc;
-        for (j = 0; j < height * zoom; j += zoom) {
-            for (i = 0; i < width * zoom; i += zoom) {
-                cccc = *in | (*in << 8) | (*in << 16) | (*in << 24);
-                in++;
-                for (k = 0; k < zoom; k++) {
-                    *(uint32_t *) (&out[(j + k) * (width * zoom) + i]) = cccc;
-                }
-            }
-        }
-    } else if (zoom == 3) {
-        uint16_t cc, c;
-        for (j = 0; j < height * zoom; j += zoom) {
-            for (i = 0; i < width * zoom; i += zoom) {
-                c = *in++;
-                cc = c | (c << 8);
-                for (k = 0; k < zoom; k++) {
-                    *(uint16_t *) (&out[(j + k) * (width * zoom) + i]) = cc;
-                    out[(j + k) * (width * zoom) + i + 2] = (uint8_t)c;
-                }
-            }
-        }
-    } else if (zoom == 2) {
-        uint16_t cc;
-        for (j = 0; j < height * zoom; j += zoom) {
-            for (i = 0; i < width * zoom; i += zoom) {
-                cc = *in | (*in << 8);
-                in++;
-                for (k = 0; k < zoom; k++) {
-                    *(uint16_t *) (&out[(j + k) * (width * zoom) + i]) = cc;
-                }
-            }
-        }
-    } else {                    /* unoptimized version */
-        int l;
-        uint8_t c;
-        for (j = 0; j < height * zoom; j += zoom) {
-            for (i = 0; i < width * zoom; i += zoom) {
-                c = *in++;
-                for (k = 0; k < zoom; k++) {
-                    for (l = 0; l < zoom; l++) {
-                        out[(j + k) * (width * zoom) + (i + l)] = c;
-                    }
-                }
-            }
-        }
+    if (all_bitmaps_last_alloc == -1) {
+        memset(all_bitmaps, 0, MAX_BITMAPS * sizeof(Bitmap *));
     }
 
-    return target;
+    do {
+        all_bitmaps_last_alloc++;
+        if (all_bitmaps_last_alloc >= MAX_BITMAPS) {
+            all_bitmaps_last_alloc = 0;
+            wrapped++;
+            assert(wrapped <= 1); /* else all bitmap positions are used */
+        }
+    } while (all_bitmaps[all_bitmaps_last_alloc] != NULL);
+
+    all_bitmaps[all_bitmaps_last_alloc] = b;
+    return all_bitmaps_last_alloc;
+}
+
+static void all_bitmaps_delete(int id) {
+    all_bitmaps[id] = NULL;
+}
+
+void all_bitmaps_resend_if_sent(void) {
+    int i;
+
+    for (i = 0; i < MAX_BITMAPS; i++) {
+        if (all_bitmaps[i] == NULL)
+            continue;
+        all_bitmaps[i]->resend_bitmapdata();
+    }
+}
+
+void all_bitmaps_send_now(void) {
+    int i;
+
+    for (i = 0; i < MAX_BITMAPS; i++) {
+        if (all_bitmaps[i] == NULL)
+            continue;
+        all_bitmaps[i]->send_bitmapdata();
+    }
+}
+
+void Bitmap::send_bitmapdata() {
+    if (!data_sent) {
+        data_sent = netsend_bitmapdata(id, width, height, hastransparency, image_data);
+    }
+}
+
+void Bitmap::resend_bitmapdata() {
+    if (data_sent) {
+        netsend_bitmapdata(id, width, height, hastransparency, image_data);
+    }
+}
+
+void Bitmap::clear_data_sent() {
+    data_sent = 0;
 }
 
 Bitmap::Bitmap(const char *image_name, int transparent) {
@@ -172,28 +173,49 @@ Bitmap::Bitmap(const char *image_name, int transparent) {
 
     name = image_name;
     hastransparency = transparent;
+    data_sent = 0;
+    id = all_bitmaps_add(this);
 }
 
 
-Bitmap::Bitmap(int width, int height, unsigned char *image_data, const char *name) {
-    this->image_data = image_data;
+Bitmap::Bitmap(int width, int height,
+               unsigned char *image_data,
+               const char *name,
+               int hastransparency,
+               int copy_image_data) {
     this->width = width;
     this->height = height;
-    this->external_image_data = 1;
     this->name = name;
-    this->hastransparency = 1;
+    this->hastransparency = hastransparency;
+    this->data_sent = 0;
+
+    if (copy_image_data) {
+        this->image_data = (unsigned char *) walloc(width * height);
+        this->external_image_data = 0;
+        memcpy(this->image_data, image_data, width * height);
+    } else {
+        this->image_data = image_data;
+        this->external_image_data = 1;
+    }
+
+    this->id = all_bitmaps_add(this);
 }
 
 
 Bitmap::~Bitmap() {
+    all_bitmaps_delete(id);
     if (!external_image_data)
         free(image_data);
+    netsend_bitmapdel(id);
 }
 
 void Bitmap::blit_fullscreen(void) {
     assert(current_mode == VGA_MODE);
     assert(!hastransparency);
     pointti = image_data;
+
+    send_bitmapdata();
+    netsend_bitmapblitfs(id);
 
     memcpy(vircr, image_data, 320 * 200);
 }
@@ -231,6 +253,21 @@ void Bitmap::blit(int xx, int yy, int rx, int ry, int rx2, int ry2) {
 
     if ((ry > ry2) || (rx > rx2))
         return;
+
+    if (xx + width <= rx || xx > rx2 || yy + height <= ry || yy > ry2)
+        return;             /* no part is inside the clip rectangle */
+
+    send_bitmapdata();
+    if ((rx == 0 &&             /* no clip rectangle set */
+         ry == 0 &&
+         rx2 == ((current_mode == SVGA_MODE) ? 799 : 319) &&
+         ry2 == ((current_mode == SVGA_MODE) ? 599 : 199)) ||
+        /* or all of the bitmap is inside the clip rectangle */
+        (xx >= rx && xx + width - 1 <= rx2 &&
+         yy >= ry && yy + height - 1 <= ry2))
+        netsend_bitmapblit(id, xx, yy);
+    else
+        netsend_bitmapblitclipped(id, xx, yy, rx, ry, rx2, ry2);
 
     fromminy = (yy >= ry) ? 0 : ry - yy;
     fromminx = (xx >= rx) ? 0 : rx - xx;
@@ -283,6 +320,8 @@ Bitmap::Bitmap(int x1, int y1, int xl, int yl, Bitmap * source_image) {
 
     name = source_image->name;
     hastransparency = source_image->hastransparency;
+    data_sent = 0;
+    id = all_bitmaps_add(this);
 }
 
 /* Create a new Bitmap from the contents of vircr at (x,y) to (x+w,y+h) */
@@ -300,6 +339,8 @@ Bitmap::Bitmap(int x, int y, int w, int h) {
 
     name = "from_vircr";
     hastransparency = 0;
+    data_sent = 0;
+    id = all_bitmaps_add(this);
 }
 
 void Bitmap::blit_to_bitmap(Bitmap * to, int xx, int yy) {
@@ -323,6 +364,64 @@ void Bitmap::blit_to_bitmap(Bitmap * to, int xx, int yy) {
 
             to_point[laskx + xx + (lasky + yy) * kokox] = image_data[laskx + lasky * width];
         }
+
+    if (to->data_sent) {
+      send_bitmapdata();
+      netsend_blittobitmap(id, to->id, xx, yy);
+    }
+}
+
+void Bitmap::recolor(unsigned char oldcolor, unsigned char newcolor) {
+    int i;
+
+    assert(!external_image_data);
+
+    for (i = 0; i < width * height; i++)
+        if (image_data[i] == oldcolor)
+            image_data[i] = newcolor;
+
+    data_sent = 0;
+}
+
+void Bitmap::blit_data(int tox, int toy,
+                       const unsigned char *data, int w, int h,
+                       int mask_color) {
+    int lx, ly;
+
+    assert(tox + w <= width);
+    assert(toy + h <= height);
+
+    for (lx = 0; lx < w; lx++)
+        for (ly = 0; ly < h; ly++)
+            if (data[ly * w + lx] != 255)
+                image_data[(toy + ly) * width + tox + lx] =
+                    (mask_color == -1) ? data[ly * w + lx] : mask_color;
+}
+
+void Bitmap::outline(unsigned char outlinecolor) {
+    unsigned char *old_data = image_data;
+
+    assert(!external_image_data);
+
+    width += 2;
+    height += 2;
+    hastransparency = 1;
+    image_data = (unsigned char *) walloc(width * height);
+
+    memset(image_data, 255, width * height);
+
+    blit_data(0, 0, old_data, width - 2, height - 2, outlinecolor);
+    blit_data(1, 0, old_data, width - 2, height - 2, outlinecolor);
+    blit_data(2, 0, old_data, width - 2, height - 2, outlinecolor);
+    blit_data(0, 1, old_data, width - 2, height - 2, outlinecolor);
+    blit_data(2, 1, old_data, width - 2, height - 2, outlinecolor);
+    blit_data(0, 2, old_data, width - 2, height - 2, outlinecolor);
+    blit_data(1, 2, old_data, width - 2, height - 2, outlinecolor);
+    blit_data(2, 2, old_data, width - 2, height - 2, outlinecolor);
+    blit_data(1, 1, old_data, width - 2, height - 2);
+
+    wfree(old_data);
+    data_sent = 0;
 }
 
 Bitmap *rotate_bitmap(Bitmap * picture, int degrees) {
@@ -359,6 +458,7 @@ Bitmap *rotate_bitmap(Bitmap * picture, int degrees) {
         }
     free(temp_data);
 
+    picture2->clear_data_sent();
     return picture2;
 }
 
