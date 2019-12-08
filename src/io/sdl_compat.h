@@ -24,6 +24,7 @@
 #ifdef HAVE_SDL_MIXER
 #include <SDL_mixer.h>
 #endif
+#include "SDL_keycode.h"
 
 #define SAMPLE_VOLUME 20
 
@@ -36,8 +37,6 @@
 
 int kbhit(void);
 int getch(void);
-
-extern unsigned char *key;
 
 typedef struct {
     int right_volume, left_volume;
@@ -52,6 +51,9 @@ typedef struct {
 #endif
 } sb_mod_file;
 
+bool is_key(SDL_Keycode key);
+bool is_any_key(void);
+SDL_Keycode last_key(void);
 void update_key_state(void);
 int sdl_init_sounds(void);
 void sdl_uninit_sounds(void);

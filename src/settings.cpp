@@ -22,18 +22,21 @@
 #include <SDL.h>
 #include <SDL_endian.h>
 #include "io/sound.h"
+#include "io/timing.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#if defined(_MSC_VER)
+#include <direct.h>
+#else
 #include <unistd.h>
+#endif
 #include <stdlib.h>
 
 
 //\\ Keys
-
-Uint8 *key = SDL_GetKeyState(NULL);
 struct keymap player_keys[4];
 
 //\\ Rosterdata
@@ -76,7 +79,12 @@ static void find_settings_directory(char *dir) {
         strncat(dir, "/.triplane", FILENAME_MAX - 1);
         ret = stat(dir, &st);
         if (ret) {
-            ret = mkdir(dir, 0755);
+            ret =
+#if defined(_MSC_VER)
+                _mkdir(dir);
+#else
+                mkdir(dir, 0755);
+#endif
             if (ret) {
                 fprintf(stderr, "Failed to create settings directory \"%s\".\n", dir);
                 exit(1);
@@ -107,15 +115,13 @@ FILE *settings_open(const char *filename, const char *mode) {
 }
 
 void wait_relase(void) {
-    int c = 0;
-
-    while (c != SDLK_LAST) {
+    while (1) {
         update_key_state();
-        for (c = 0; c < SDLK_LAST; c++)
-            if (key[c] && c != SDLK_NUMLOCK && c != SDLK_CAPSLOCK && c != SDLK_SCROLLOCK)
-                break;
+        if (!is_any_key()) {
+            break;
+        }
+        nopeuskontrolli();
     }
-
 }
 
 int select_key(int player, int old) {
@@ -123,22 +129,21 @@ int select_key(int player, int old) {
     int flag = 1;
 
     while (flag) {
-        if (key[SDLK_ESCAPE])
+        if (is_key(SDLK_ESCAPE))
             flag = 0;
 
         update_key_state();
+        c = last_key();
 
-        for (c = 0; c < SDLK_LAST; c++)
-            if (key[c] && c != SDLK_NUMLOCK && c != SDLK_CAPSLOCK && c != SDLK_SCROLLOCK)
-                break;
-
-        if (c != SDLK_LAST)
+        if (c != SDLK_UNKNOWN)
             if ((c != SDLK_ESCAPE) && (c != SDLK_PAUSE)) {
                 wait_relase();
                 return c;
             }
         if (player == 100)
             return 100;
+
+        nopeuskontrolli();
     }
 
     wait_relase();
@@ -277,7 +282,7 @@ void load_keyset(void) {
 
         player_keys[1].up = SDLK_DOWN;
         player_keys[1].down = SDLK_UP;
-        player_keys[1].roll = SDLK_KP5;
+        player_keys[1].roll = SDLK_KP_5;
         player_keys[1].power = SDLK_KP_PLUS;
         player_keys[1].guns = SDLK_HOME;
         player_keys[1].bombs = SDLK_LEFT;
@@ -288,6 +293,14 @@ void load_keyset(void) {
         fclose(faili);
         swap_keyset_endianes();
     }
+}
+
+void write_roster_header(FILE *faili)
+{
+    struct rosteri_header hdr;
+    hdr.magic = SDL_SwapLE32(ROSTERI_MAGIC);
+    hdr.version = SDL_SwapLE32(ROSTERI_VERSION);
+    fwrite(&hdr, sizeof(hdr), 1, faili);
 }
 
 void load_roster(void) {
@@ -335,6 +348,7 @@ void load_roster(void) {
 
         }
 
+        write_roster_header(faili);
         swap_roster_endianes();
         fwrite(&roster, sizeof(roster), 1, faili);
         fclose(faili);
@@ -382,12 +396,7 @@ void save_roster(void) {
         exit(1);
     }
 
-    {
-        struct rosteri_header hdr;
-        hdr.magic = SDL_SwapLE32(ROSTERI_MAGIC);
-        hdr.version = SDL_SwapLE32(ROSTERI_VERSION);
-        fwrite(&hdr, sizeof(hdr), 1, faili);
-    }
+    write_roster_header(faili);
     swap_roster_endianes();
     fwrite(&roster, sizeof(roster), 1, faili);
     fclose(faili);

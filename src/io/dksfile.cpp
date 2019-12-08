@@ -30,7 +30,11 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#if defined(_MSC_VER)
+#define __attribute__(x)
+#else
 #include <unistd.h>
+#endif
 #include <stdlib.h>
 #include "util/wutil.h"
 #include "io/dksfile.h"

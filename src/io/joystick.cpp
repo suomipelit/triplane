@@ -117,20 +117,20 @@ void save_joysticks_data(const char *filename) {
  */
 void open_close_joysticks(int joy1, int joy2) {
     if (SDL_NumJoysticks() >= 1) {
-        if (!joy1 && SDL_JoystickOpened(0)) {
+        if (!joy1 && joydev[0]) {
             SDL_JoystickClose(joydev[0]);
             joydev[0] = NULL;
         }
-        if (joy1 && !SDL_JoystickOpened(0)) {
+        if (joy1 && !joydev[0]) {
             joydev[0] = SDL_JoystickOpen(0);
         }
     }
     if (SDL_NumJoysticks() >= 2) {
-        if (!joy2 && SDL_JoystickOpened(1)) {
+        if (!joy2 && joydev[1]) {
             SDL_JoystickClose(joydev[1]);
             joydev[1] = NULL;
         }
-        if (joy2 && !SDL_JoystickOpened(1)) {
+        if (joy2 && !joydev[1]) {
             joydev[1] = SDL_JoystickOpen(1);
         }
     }
