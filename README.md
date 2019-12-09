@@ -9,8 +9,7 @@ original game exactly so that high scores remain comparable to the
 original.
 
 Please read the manual page for information on how to actually play
-the game. Also see README.install if you want to build the game from
-source code.
+the game.
 
 ## Copyrights
 
