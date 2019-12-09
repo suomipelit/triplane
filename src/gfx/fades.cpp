@@ -19,6 +19,7 @@
  */
 
 #include <assert.h>
+#include <string.h>
 #include "gfx/fades.h"
 #include "gfx/gfx.h"
 #include "util/wutil.h"
@@ -33,6 +34,7 @@ void horisontal_split(void) {
 
     c1 = 0;
     while (c1 < 150) {
+        memset(vircr, 0, 320 * 200);
         upper->blit(0, 0 - c1);
         lower->blit(0, 100 + c1);
         do_all_clear();
@@ -57,6 +59,7 @@ void vertical_split() {
     c2 = 1;
 
     while (c1 < 200) {
+        memset(vircr, 0, 320 * 200);
         left->blit(0 - c1, 0);
         right->blit(160 + c1, 0);
         do_all_clear();
