@@ -1123,30 +1123,30 @@ void controls(void) {
                                 new_mc_roll[l] = 1;
                 }
             } else {
-                if ((playing_solo ? key[roster[config.player_number[solo_country]].down] : key[player_keys[l].down]))
+                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].down) : is_key(player_keys[l].down)))
                     new_mc_down[l] = 1;
                 else
                     new_mc_down[l] = 0;
 
-                if ((playing_solo ? key[roster[config.player_number[solo_country]].up] : key[player_keys[l].up]))
+                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].up) : is_key(player_keys[l].up)))
                     new_mc_up[l] = 1;
                 else
                     new_mc_up[l] = 0;
 
                 if (!power_on_off) {
                     if (!power_reverse) {
-                        if ((playing_solo ? key[roster[config.player_number[solo_country]].power] : key[player_keys[l].power]))
+                        if ((playing_solo ? is_key(roster[config.player_number[solo_country]].power) : is_key(player_keys[l].power)))
                             new_mc_power[l] = 1;
                         else
                             new_mc_power[l] = 0;
                     } else {
-                        if ((playing_solo ? key[roster[config.player_number[solo_country]].power] : key[player_keys[l].power]))
+                        if ((playing_solo ? is_key(roster[config.player_number[solo_country]].power) : is_key(player_keys[l].power)))
                             new_mc_power[l] = 0;
                         else
                             new_mc_power[l] = 1;
                     }
                 } else {
-                    if ((playing_solo ? key[roster[config.player_number[solo_country]].power] : key[player_keys[l].power])) {
+                    if ((playing_solo ? is_key(roster[config.player_number[solo_country]].power) : is_key(player_keys[l].power))) {
                         if (!controls_power2[l]) {
                             if (new_mc_power[l])
                                 new_mc_power[l] = 0;
@@ -1165,13 +1165,13 @@ void controls(void) {
 
                 new_mc_bomb[l] = 0;
 
-                if ((playing_solo ? key[roster[config.player_number[solo_country]].bombs] : key[player_keys[l].bombs])) {
+                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].bombs) : is_key(player_keys[l].bombs))) {
                     new_mc_bomb[l] = 1;
 
                 }
 
                 new_mc_roll[l] = 0;
-                if ((playing_solo ? key[roster[config.player_number[solo_country]].roll] : key[player_keys[l].roll])) {
+                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].roll) : is_key(player_keys[l].roll))) {
 
                     new_mc_roll[l] = 1;
 
@@ -1181,7 +1181,7 @@ void controls(void) {
 
                 new_mc_guns[l] = 0;
 
-                if ((playing_solo ? key[roster[config.player_number[solo_country]].guns] : key[player_keys[l].guns])) {
+                if ((playing_solo ? is_key(roster[config.player_number[solo_country]].guns) : is_key(player_keys[l].guns))) {
                     new_mc_guns[l] = 1;
 
                 }
@@ -1661,17 +1661,17 @@ void main_engine(void) {
     while (flag) {
         update_key_state();
 
-        if (key[SDLK_PAUSE]) {
+        if (is_key(SDLK_PAUSE)) {
             // wait until pause key is released, then pressed and released again
-            while (key[SDLK_PAUSE]) {   // still pressed
+            while (is_key(SDLK_PAUSE)) {   // still pressed
                 nopeuskontrolli();
                 update_key_state();
             }
-            while (!key[SDLK_PAUSE]) {  // released
+            while (!is_key(SDLK_PAUSE)) {  // released
                 nopeuskontrolli();
                 update_key_state();
             }
-            while (key[SDLK_PAUSE]) {   // pressed again
+            while (is_key(SDLK_PAUSE)) {   // pressed again
                 nopeuskontrolli();
                 update_key_state();
             }
@@ -1679,23 +1679,23 @@ void main_engine(void) {
         // use F4 as an alias for the Pause key
         // because Pause does not always work reliably
         // (and is not present on all keyboards)
-        if (key[SDLK_F4]) {
+        if (is_key(SDLK_F4)) {
             // wait until F4 is released, then pressed and released again
-            while (key[SDLK_F4]) {      // still pressed
+            while (is_key(SDLK_F4)) {      // still pressed
                 nopeuskontrolli();
                 update_key_state();
             }
-            while (!key[SDLK_F4]) {     // released
+            while (!is_key(SDLK_F4)) {     // released
                 nopeuskontrolli();
                 update_key_state();
             }
-            while (key[SDLK_F4]) {      // pressed again
+            while (is_key(SDLK_F4)) {      // pressed again
                 nopeuskontrolli();
                 update_key_state();
             }
         }
 
-        if (key[SDLK_ESCAPE]) {
+        if (is_key(SDLK_ESCAPE)) {
             flag = 0;
             mission_interrupted = 1;
         }
@@ -1814,7 +1814,7 @@ void main_engine(void) {
                     solo_success = 1;
             }
 
-            if (key[SDLK_F1] && key[SDLK_F2] && key[SDLK_F3]) {
+            if (is_key(SDLK_F1) && is_key(SDLK_F2) && is_key(SDLK_F3)) {
                 frost->printf(40, 40, "SoloDestRemaining: %d. l=%d\n", solo_dest_remaining, l);
 
             }
@@ -3600,17 +3600,17 @@ int main(int argc, char *argv[]) {
 
 
     if (findparameter("-?") || findparameter("-h") || findparameter("--help") || findparameter("-help")) {
-        printf("Triplane Classic " TRIPLANE_VERSION " - a side-scrolling dogfighting game.\n");
+        printf("Triplane Classic " TRIPLANE_VERSION "-" TRIPLANE_SP_VERSION " - a side-scrolling dogfighting game.\n");
         printf("Copyright (C) 1996,1997,2009  Dodekaedron Software Creations Oy\n");
         printf("This program is free software; you may redistribute it under the terms of\n");
         printf("the GNU General Public License version 3 or (at your option) a later version.\n");
         printf("This program has absolutely no warranty.\n\n");
         printf("-help         Help on options\n");
-        printf("-fullscreen   Start game in fullscreen mode (default)\n");
-        printf("-nofullscreen Start game in windowed mode\n");
+        printf("-fullscreen   Start game in fullscreen mode\n");
+        printf("-nofullscreen Start game in windowed mode (default)\n");
         printf("-nosound      Start game without sounds\n");
-        printf("-2, -3, -4    Zoom the 320x200-pixel game window 2x, 3x or 4x\n");
-        printf("-2svga        Zoom the 800x600-pixel window 2x to produce 1600x1200-pixel window\n");
+        //printf("-2, -3, -4    Zoom the 320x200-pixel game window 2x, 3x or 4x\n"); SP-TODO: Not supported
+        //printf("-2svga        Zoom the 800x600-pixel window 2x to produce 1600x1200-pixel window\n"); SP-TODO: Not supported
         printf("\n");
         exit(0);
     }
@@ -3623,7 +3623,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    main_engine_random_seed = time(0);
+    main_engine_random_seed = (int)time(0);
     wrandom_sanity_check();
 
     main_version = MAIN_VERSION;
@@ -3814,6 +3814,8 @@ int main(int argc, char *argv[]) {
     save_config();
 
     clean_memory();
+
+    deinit_video();
 
     return 0;
 }

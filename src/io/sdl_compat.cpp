@@ -35,6 +35,20 @@
 #include "io/dksfile.h"
 #include "util/wutil.h"
 #include "io/timing.h"
+#include <string.h>
+
+typedef struct
+{
+    SDL_Keycode keycode;
+    bool pressed;
+    size_t event_id;
+} Key;
+
+namespace
+{
+const size_t MAX_NUMBER_OF_PRESSED_KEYS = 128;
+Key keys[MAX_NUMBER_OF_PRESSED_KEYS] = {{0}};
+}
 
 int kbhit(void) {
     SDL_Event e;
@@ -42,7 +56,7 @@ int kbhit(void) {
 
     nopeuskontrolli();
 
-    ret = SDL_PeepEvents(&e, 1, SDL_PEEKEVENT, ~0);
+    ret = SDL_PeepEvents(&e, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
     if (ret) {
         if (e.type == SDL_KEYUP) {
             return 1;
@@ -76,11 +90,90 @@ int getch(void) {
     }
 }
 
+Key *find_key(SDL_Keycode keycode)
+{
+    int i;
+    /* Look if key already exists in array */
+    for (i = 0; i < MAX_NUMBER_OF_PRESSED_KEYS; ++i) {
+        if (keys[i].keycode == keycode) {
+            return &keys[i];
+        }
+    }
+    /* Find free entry if key didn't previously exist */
+    for (i = 0; i < MAX_NUMBER_OF_PRESSED_KEYS; ++i) {
+        if (!keys[i].keycode) {
+            return &keys[i];
+        }
+    }
+    /* Out of slots. Should never happen with big enough MAX_NUMBER_OF_PRESSED_KEYS */
+    return NULL;
+}
+
+bool is_key(SDL_Keycode key)
+{
+    Key *searched_key = find_key(key);
+    if (searched_key) {
+        return searched_key->pressed;
+    }
+    return false;
+}
+
+bool is_any_key(void)
+{
+    int i;
+
+    for (i = 0; i < MAX_NUMBER_OF_PRESSED_KEYS; ++i) {
+        if (keys[i].pressed) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+SDL_Keycode last_key(void)
+{
+    int i;
+    Key *key = NULL;
+
+    for (i = 0; i < MAX_NUMBER_OF_PRESSED_KEYS; ++i) {
+        if (keys[i].pressed && (!key || (keys[i].event_id > key->event_id))) {
+            key = &keys[i];
+        }
+    }
+
+    return key ? key->keycode : SDLK_UNKNOWN;
+}
+
 void update_key_state(void) {
-    SDL_Event e;
-    SDL_PumpEvents();
-    while (SDL_PollEvent(&e)) {
-        ;
+    static size_t event_number = 0;
+    SDL_Event ev;
+    Key *key = NULL;
+
+    while (SDL_PollEvent(&ev)) {
+        switch (ev.type) {
+        case SDL_KEYDOWN: {
+            const SDL_Keycode pressed = ev.key.keysym.sym;
+            key = find_key(pressed);
+            if (key) {
+                key->keycode = pressed;
+                key->pressed = 1;
+                key->event_id = event_number++;
+            }
+            break;
+        }
+        case SDL_KEYUP: {
+            const SDL_Keycode pressed = ev.key.keysym.sym;
+            key = find_key(pressed);
+            if (key && key->keycode == pressed) {
+                memset(key, 0, sizeof(*key));
+            }
+            break;
+        }
+        case SDL_QUIT:
+            exit(0);
+            break;
+        }
     }
 }
 
@@ -222,7 +315,7 @@ sb_mod_file *sdl_load_mod_file(const char *name) {
     mod = (sb_mod_file *) walloc(sizeof(sb_mod_file));
 
     rwops = SDL_RWFromConstMem(p, len);
-    mod->music = Mix_LoadMUS_RW(rwops);
+    mod->music = Mix_LoadMUS_RW(rwops, 0);
     SDL_FreeRW(rwops);
     if (mod->music == NULL) {
         fprintf(stderr, "sdl_load_mod_file: %s\n", Mix_GetError());

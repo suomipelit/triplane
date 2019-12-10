@@ -103,7 +103,7 @@ static unsigned char *duplicate_enlarged(const unsigned char *source, int width,
                 cc = c | (c << 8);
                 for (k = 0; k < zoom; k++) {
                     *(uint16_t *) (&out[(j + k) * (width * zoom) + i]) = cc;
-                    out[(j + k) * (width * zoom) + i + 2] = c;
+                    out[(j + k) * (width * zoom) + i + 2] = (uint8_t)c;
                 }
             }
         }
@@ -159,10 +159,10 @@ void Bitmap::refresh_sdlsurface() {
         fprintf(stderr, "SDL_CreateRGBSurfaceFrom: %s\n", SDL_GetError());
         exit(1);
     }
-    SDL_SetPalette(tmps, SDL_LOGPAL, curpal, 0, 256);
+    SDL_SetPaletteColors(tmps->format->palette, curpal, 0, 256);
     if (hastransparency)
-        SDL_SetColorKey(tmps, SDL_SRCCOLORKEY | SDL_RLEACCEL, 0xff);
-    sdlsurface = SDL_DisplayFormat(tmps);
+        SDL_SetColorKey(tmps, SDL_TRUE | SDL_RLEACCEL, 0xff);
+    sdlsurface = SDL_ConvertSurfaceFormat(tmps, SDL_GetWindowPixelFormat(video_state.window), 0);
     if (sdlsurface == NULL) {
         fprintf(stderr, "SDL_DisplayFormat: %s\n", SDL_GetError());
         exit(1);

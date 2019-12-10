@@ -36,6 +36,10 @@ extern naytto ruutu;
 
 struct video_state_t {
     SDL_Surface *surface;
+    SDL_Surface *displaySurface;
+    SDL_Texture *texture;
+    SDL_Renderer *renderer;
+    SDL_Window *window;
     int init_done;
     int haverealpalette;
 };
@@ -50,6 +54,7 @@ void do_all(int do_retrace = 0);
 int init_vesa(const char *paletname);
 void init_vga(const char *paletname);
 void init_video(void);
+void deinit_video(void);
 
 extern unsigned char *vircr;
 extern Bitmap *standard_background;

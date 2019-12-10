@@ -23,8 +23,11 @@
 #include "util/wutil.h"
 #include <SDL.h>
 #include <signal.h>
+#if !defined(_MSC_VER)
 #include <unistd.h>
+#endif
 #include <assert.h>
+#include <string.h>
 
 struct video_state_t video_state = { NULL, 0, 0 };
 
@@ -36,7 +39,7 @@ int update_vircr_mode = 1;
 int draw_with_vircr_mode = 1;
 int pixel_multiplier = 1;       /* current pixel multiplier */
 int pixel_multiplier_vga = 1, pixel_multiplier_svga = 1;
-int wantfullscreen = 1;
+int wantfullscreen = 0;
 
 SDL_Color curpal[256];
 
@@ -64,10 +67,11 @@ void setpal_range(const char pal[][3], int firstcolor, int n, int reverse) {
             from++;
     }
 
+    // SP-TODO
     if (draw_with_vircr_mode) {
-        SDL_SetPalette(video_state.surface, video_state.haverealpalette ? SDL_PHYSPAL : SDL_LOGPAL, cc, firstcolor, n);
+        SDL_SetPaletteColors(video_state.surface->format->palette, cc, firstcolor, n);
     } else {
-        SDL_SetPalette(video_state.surface, SDL_PHYSPAL | SDL_LOGPAL, cc, firstcolor, n);
+        SDL_SetPaletteColors(video_state.surface->format->palette, cc, firstcolor, n);
     }
     memcpy(&curpal[firstcolor], cc, n * sizeof(SDL_Color));
     wfree(cc);
@@ -122,7 +126,7 @@ void do_all(int do_retrace) {
                         cc = c | (c << 8);
                         for (k = 0; k < pixel_multiplier; k++) {
                             *(uint16_t *) (&out[(j + k) * (w * pixel_multiplier) + i]) = cc;
-                            out[(j + k) * (w * pixel_multiplier) + i + 2] = c;
+                            out[(j + k) * (w * pixel_multiplier) + i + 2] = (uint8_t)c;
                         }
                     }
                 }
@@ -154,7 +158,26 @@ void do_all(int do_retrace) {
         }
     }
 
-    SDL_Flip(video_state.surface);
+    /* Blit 8-bit surface to 32-bit surface */
+    SDL_BlitSurface(video_state.surface, NULL, video_state.displaySurface, NULL);
+
+    void *pixels;
+    int pitch;
+
+    SDL_LockTexture(video_state.texture, NULL, &pixels, &pitch);
+
+    /* Convert 8-bit data to renderable 32-bit data */
+    SDL_ConvertPixels(video_state.displaySurface->w, video_state.displaySurface->h,
+        video_state.displaySurface->format->format,
+        video_state.displaySurface->pixels, video_state.displaySurface->pitch,
+        SDL_PIXELFORMAT_RGBA8888,
+        pixels, pitch);
+
+    SDL_UnlockTexture(video_state.texture);
+
+    /* Render texture to display */
+    SDL_RenderCopy(video_state.renderer, video_state.texture, NULL, NULL);
+    SDL_RenderPresent(video_state.renderer);
 }
 
 static void sigint_handler(int dummy) {
@@ -174,7 +197,6 @@ void init_video(void) {
         atexit(SDL_Quit);
         video_state.init_done = 1;
 
-        SDL_WM_SetCaption("Triplane Classic", "Triplane Classic");
         SDL_ShowCursor(SDL_DISABLE);
 
         if (!draw_with_vircr_mode) {
@@ -183,29 +205,90 @@ void init_video(void) {
     }
 }
 
+static void deinit() {
+    if (video_state.texture) {
+        SDL_DestroyTexture(video_state.texture);
+        video_state.texture = NULL;
+    }
+    if (video_state.displaySurface) {
+        SDL_FreeSurface(video_state.displaySurface);
+        video_state.displaySurface = NULL;
+    }
+    if (video_state.renderer) {
+        SDL_DestroyRenderer(video_state.renderer);
+        video_state.renderer = NULL;
+    }
+    if (video_state.window) {
+        SDL_DestroyWindow(video_state.window);
+        video_state.window = NULL;
+    }
+    if (video_state.surface) {
+        SDL_FreeSurface(video_state.surface);
+        video_state.surface = NULL;
+    }
+}
+
+void deinit_video(void) {
+    if (video_state.init_done) {
+        deinit();
+        SDL_Quit();
+    }
+}
+
 static int init_mode(int new_mode, const char *paletname) {
     Uint32 mode_flags;
-    const SDL_VideoInfo *vi;
     int las, las2;
     int w = (new_mode == SVGA_MODE) ? 800 : 320;
     int h = (new_mode == SVGA_MODE) ? 600 : 200;
 
     init_video();
 
-    mode_flags = SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_HWPALETTE;
+    //if (!draw_with_vircr_mode) SP-TODO
+    mode_flags = SDL_WINDOW_OPENGL;
 
-    if (!draw_with_vircr_mode)
-        mode_flags |= SDL_ANYFORMAT;
     if (wantfullscreen)
-        mode_flags |= SDL_FULLSCREEN;
+        mode_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
     if (draw_with_vircr_mode && pixel_multiplier > 1)
         wfree(vircr);
 
     pixel_multiplier = (new_mode == SVGA_MODE) ? pixel_multiplier_svga : pixel_multiplier_vga;
 
-    video_state.surface = SDL_SetVideoMode(w * pixel_multiplier, h * pixel_multiplier, 8, mode_flags);
+    if (video_state.window) {
+        deinit();
+    }
+
+    video_state.window = SDL_CreateWindow("Triplane Classic",
+        SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED,
+        w, h,
+        mode_flags);
+
+    assert(video_state.window);
+
+    video_state.surface = SDL_CreateRGBSurface(0,
+        w, h,
+        8, 0, 0, 0, 0);
+
     assert(video_state.surface);
+
+    video_state.renderer = SDL_CreateRenderer(video_state.window, -1, 0);
+
+    assert(video_state.surface);
+
+    video_state.displaySurface = SDL_CreateRGBSurface(0,
+        w, h,
+        32, 0, 0, 0, 0);
+
+    assert(video_state.displaySurface);
+
+    video_state.texture = SDL_CreateTexture(video_state.renderer,
+        SDL_PIXELFORMAT_RGBA8888,
+        SDL_TEXTUREACCESS_STREAMING,
+        w,
+        h);
+
+    assert(video_state.texture);
 
     if (draw_with_vircr_mode) {
         if (pixel_multiplier > 1) {
@@ -215,8 +298,8 @@ static int init_mode(int new_mode, const char *paletname) {
         }
     }
     /* else vircr is preallocated in init_video */
-    vi = SDL_GetVideoInfo();
-    video_state.haverealpalette = (vi->vfmt->palette != NULL);
+
+    video_state.haverealpalette = true; // SP-TODO
 
     dksopen(paletname);
 

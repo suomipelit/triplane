@@ -30,7 +30,7 @@
 #include <SDL.h>
 
 void hiiri_to(int x, int y) {
-    SDL_WarpMouse(x * pixel_multiplier, y * pixel_multiplier);
+    SDL_WarpMouseInWindow(video_state.window, x * pixel_multiplier, y * pixel_multiplier);
 }
 
 void koords(int *x, int *y, int *n1, int *n2) {

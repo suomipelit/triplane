@@ -80,10 +80,6 @@ int main(int argc,char **argv)
   unsigned long koko;
   unsigned long offset; 
   char crypt_key[80]="";
-  int crypt_length;
-  int c_counter;
-  unsigned char *crypt_pointer;
-  int key_counter;
   int reg_number=5324434;
 
   if( (info=(buildaus_info *) malloc (MAX_ENTRIES*sizeof(buildaus_info))) ==NULL)
