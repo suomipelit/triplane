@@ -1202,14 +1202,17 @@ void options_menu(void) {
             frost->printf(73, 100, "Structure flames?");
             frost->printf(73, 110, "Use 800x600 window\nin multiplayergame?");
             frost->printf(73, 130, "Structure smoke?");
+            frost->printf(73, 140, "Fullscreen?");
 
             for (l = 0; l < 6; l++) {
                 boxi(214, 60 + l * 10, 221, 68 + l * 10, 0);
                 boxi(224, 60 + l * 10, 231, 68 + l * 10, 0);
             }
 
-            boxi(214, 130, 221, 138, 0);
-            boxi(224, 130, 231, 138, 0);
+            for (l = 0; l < 2; l++) {
+                boxi(214, 130 + l * 10, 221, 138 + l * 10, 0);
+                boxi(224, 130 + l * 10, 231, 138 + l * 10, 0);
+            }
 
             if (config.shots_visible)
                 right->blit(215, 60);
@@ -1241,11 +1244,15 @@ void options_menu(void) {
             else
                 wrong->blit(225, 130);
 
-
             if (config.svga)
                 right->blit(215, 110);
             else
                 wrong->blit(225, 110);
+
+            if (config.fullscreen)
+                right->blit(215, 140);
+            else
+                wrong->blit(225, 140);
 
             break;
 
@@ -1504,7 +1511,10 @@ void options_menu(void) {
 
                 }
 
-
+                if (y >= 140 && y <= 148) {
+                    // fullscreen
+                    menuselect = 35;
+                }
             }
 
         if (optimode == 1)
@@ -1834,7 +1844,12 @@ void options_menu(void) {
                 config.unlimited_gas = menusubselect;
                 break;
 
-
+            case 35:
+                config.fullscreen = menusubselect;
+                if (config.fullscreen != wantfullscreen) {
+                    set_fullscreen(config.fullscreen);
+                }
+                break;
             }
 
             if (menuselect >= 3 && menuselect <= 6)

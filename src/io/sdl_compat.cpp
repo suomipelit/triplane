@@ -51,8 +51,7 @@ const size_t MAX_NUMBER_OF_PRESSED_KEYS = 128;
 Key keys[MAX_NUMBER_OF_PRESSED_KEYS] = {{0}};
 
 void toggle_fullscreen() {
-    wantfullscreen = !wantfullscreen;
-    SDL_SetWindowFullscreen(video_state.window, wantfullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    set_fullscreen(!wantfullscreen);
 }
 
 int handle_special_keys(const SDL_KeyboardEvent *key) {
@@ -63,6 +62,11 @@ int handle_special_keys(const SDL_KeyboardEvent *key) {
 
     return 0;
 }
+}
+
+void set_fullscreen(int fullscreen) {
+    wantfullscreen = fullscreen;
+    SDL_SetWindowFullscreen(video_state.window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 }
 
 int kbhit(void) {
