@@ -35,6 +35,7 @@
 #include "io/dksfile.h"
 #include "util/wutil.h"
 #include "io/timing.h"
+#include "io/video.h"
 #include <string.h>
 
 typedef struct
@@ -48,6 +49,20 @@ namespace
 {
 const size_t MAX_NUMBER_OF_PRESSED_KEYS = 128;
 Key keys[MAX_NUMBER_OF_PRESSED_KEYS] = {{0}};
+
+void toggle_fullscreen() {
+    wantfullscreen = !wantfullscreen;
+    SDL_SetWindowFullscreen(video_state.window, wantfullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+}
+
+int handle_special_keys(const SDL_KeyboardEvent *key) {
+    if (key->keysym.scancode == SDL_SCANCODE_RETURN && key->keysym.mod & KMOD_LALT) {
+        toggle_fullscreen();
+        return 1;
+    }
+
+    return 0;
+}
 }
 
 int kbhit(void) {
@@ -58,10 +73,19 @@ int kbhit(void) {
 
     ret = SDL_PeepEvents(&e, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
     if (ret) {
-        if (e.type == SDL_KEYUP) {
+        switch (e.type)
+        {
+        case SDL_KEYUP:
             return 1;
-        } else {
+        case SDL_QUIT:
+            exit(0);
+            break;
+        case SDL_KEYDOWN:
+            handle_special_keys(&e.key);
+            /* FALLTHROUGH */
+        default:
             SDL_PollEvent(&e);
+            break;
         }
     }
     return 0;
@@ -90,8 +114,7 @@ int getch(void) {
     }
 }
 
-Key *find_key(SDL_Keycode keycode)
-{
+Key *find_key(SDL_Keycode keycode) {
     int i;
     /* Look if key already exists in array */
     for (i = 0; i < MAX_NUMBER_OF_PRESSED_KEYS; ++i) {
@@ -109,8 +132,7 @@ Key *find_key(SDL_Keycode keycode)
     return NULL;
 }
 
-bool is_key(SDL_Keycode key)
-{
+bool is_key(SDL_Keycode key) {
     Key *searched_key = find_key(key);
     if (searched_key) {
         return searched_key->pressed;
@@ -118,8 +140,7 @@ bool is_key(SDL_Keycode key)
     return false;
 }
 
-bool is_any_key(void)
-{
+bool is_any_key(void) {
     int i;
 
     for (i = 0; i < MAX_NUMBER_OF_PRESSED_KEYS; ++i) {
@@ -131,8 +152,7 @@ bool is_any_key(void)
     return false;
 }
 
-SDL_Keycode last_key(void)
-{
+SDL_Keycode last_key(void) {
     int i;
     Key *key = NULL;
 
@@ -153,6 +173,10 @@ void update_key_state(void) {
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
         case SDL_KEYDOWN: {
+            if (handle_special_keys(&ev.key)) {
+                break;
+            }
+
             const SDL_Keycode pressed = ev.key.keysym.sym;
             key = find_key(pressed);
             if (key) {
