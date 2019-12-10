@@ -45,37 +45,6 @@ int all_bitmaps_n = 0;
 
 unsigned char *pointti;
 
-static void all_bitmaps_add(Bitmap * b) {
-    if (draw_with_vircr_mode)
-        return;
-
-    assert(all_bitmaps_n < MAX_BITMAPS);
-    all_bitmaps[all_bitmaps_n++] = b;
-}
-
-static void all_bitmaps_delete(Bitmap * b) {
-    int i;
-
-    if (draw_with_vircr_mode)
-        return;
-
-    for (i = 0; i < all_bitmaps_n; i++)
-        if (all_bitmaps[i] == b)
-            break;
-    if (i < all_bitmaps_n)
-        all_bitmaps[i] = all_bitmaps[--all_bitmaps_n];
-}
-
-void all_bitmaps_refresh(void) {
-    int i;
-
-    if (draw_with_vircr_mode)
-        return;
-
-    for (i = 0; i < all_bitmaps_n; i++)
-        all_bitmaps[i]->refresh_sdlsurface();
-}
-
 /* Make a copy of the image data in source, enlarged zoom times */
 static unsigned char *duplicate_enlarged(const unsigned char *source, int width, int height, int zoom) {
     uint8_t *target = (uint8_t *) walloc(width * height * zoom * zoom);
@@ -134,44 +103,6 @@ static unsigned char *duplicate_enlarged(const unsigned char *source, int width,
     }
 
     return target;
-}
-
-void Bitmap::refresh_sdlsurface() {
-    unsigned char *imgmult = NULL;
-    SDL_Surface *tmps;
-
-    if (sdlsurface != NULL) {
-        SDL_FreeSurface(sdlsurface);
-        sdlsurface = NULL;
-    }
-
-    if (draw_with_vircr_mode)
-        return;                 /* sdlsurfaces are not used */
-
-    if (pixel_multiplier > 1) {
-        imgmult = duplicate_enlarged(image_data, width, height, pixel_multiplier);
-        tmps = SDL_CreateRGBSurfaceFrom(imgmult, width * pixel_multiplier, height * pixel_multiplier, 8, width * pixel_multiplier, 0, 0, 0, 0);
-    } else {
-        tmps = SDL_CreateRGBSurfaceFrom(image_data, width, height, 8, width, 0, 0, 0, 0);
-    }
-
-    if (tmps == NULL) {
-        fprintf(stderr, "SDL_CreateRGBSurfaceFrom: %s\n", SDL_GetError());
-        exit(1);
-    }
-    SDL_SetPaletteColors(tmps->format->palette, curpal, 0, 256);
-    if (hastransparency)
-        SDL_SetColorKey(tmps, SDL_TRUE | SDL_RLEACCEL, 0xff);
-    sdlsurface = SDL_ConvertSurfaceFormat(tmps, SDL_GetWindowPixelFormat(video_state.window), 0);
-    if (sdlsurface == NULL) {
-        fprintf(stderr, "SDL_DisplayFormat: %s\n", SDL_GetError());
-        exit(1);
-    }
-
-    SDL_FreeSurface(tmps);
-    if (pixel_multiplier > 1) {
-        wfree(imgmult);
-    }
 }
 
 Bitmap::Bitmap(const char *image_name, int transparent) {
@@ -241,9 +172,6 @@ Bitmap::Bitmap(const char *image_name, int transparent) {
 
     name = image_name;
     hastransparency = transparent;
-    sdlsurface = NULL;
-    refresh_sdlsurface();
-    all_bitmaps_add(this);
 }
 
 
@@ -254,18 +182,10 @@ Bitmap::Bitmap(int width, int height, unsigned char *image_data, const char *nam
     this->external_image_data = 1;
     this->name = name;
     this->hastransparency = 1;
-    this->sdlsurface = NULL;
-    refresh_sdlsurface();
-    all_bitmaps_add(this);
 }
 
 
 Bitmap::~Bitmap() {
-    all_bitmaps_delete(this);
-    if (sdlsurface != NULL) {
-        SDL_FreeSurface(sdlsurface);
-        sdlsurface = NULL;
-    }
     if (!external_image_data)
         free(image_data);
 }
@@ -275,11 +195,7 @@ void Bitmap::blit_fullscreen(void) {
     assert(!hastransparency);
     pointti = image_data;
 
-    if (update_vircr_mode)
-        memcpy(vircr, image_data, 320 * 200);
-
-    if (!draw_with_vircr_mode)
-        SDL_BlitSurface(sdlsurface, NULL, video_state.surface, NULL);
+    memcpy(vircr, image_data, 320 * 200);
 }
 
 /*
@@ -289,7 +205,6 @@ void Bitmap::blit_fullscreen(void) {
 void Bitmap::blit(int xx, int yy, int rx, int ry, int rx2, int ry2) {
     int fromminy, fromminx, frommaxy, frommaxx, bwidth;
     int xi, yi, tx, ty;
-    SDL_Rect clip, pos;
 
     if (current_mode == SVGA_MODE) {
         if (rx == 0 && ry == 0 && rx2 == 319 && ry2 == 199) {
@@ -317,50 +232,25 @@ void Bitmap::blit(int xx, int yy, int rx, int ry, int rx2, int ry2) {
     if ((ry > ry2) || (rx > rx2))
         return;
 
-    if (update_vircr_mode) {
-        fromminy = (yy >= ry) ? 0 : ry - yy;
-        fromminx = (xx >= rx) ? 0 : rx - xx;
-        frommaxy = (yy + height - 1 <= ry2) ? height - 1 : ry2 - yy;
-        frommaxx = (xx + width - 1 <= rx2) ? width - 1 : rx2 - xx;
+    fromminy = (yy >= ry) ? 0 : ry - yy;
+    fromminx = (xx >= rx) ? 0 : rx - xx;
+    frommaxy = (yy + height - 1 <= ry2) ? height - 1 : ry2 - yy;
+    frommaxx = (xx + width - 1 <= rx2) ? width - 1 : rx2 - xx;
 
-        if (fromminx <= frommaxx) {
-            if (hastransparency) {
-                for (yi = fromminy, ty = fromminy + yy; yi <= frommaxy; yi++, ty++) {
-                    for (xi = fromminx, tx = fromminx + xx; xi <= frommaxx; xi++, tx++) {
-                        unsigned char val = image_data[width * yi + xi];
-                        if (val != 0xff) {
-                            vircr[bwidth * ty + tx] = val;
-                        }
+    if (fromminx <= frommaxx) {
+        if (hastransparency) {
+            for (yi = fromminy, ty = fromminy + yy; yi <= frommaxy; yi++, ty++) {
+                for (xi = fromminx, tx = fromminx + xx; xi <= frommaxx; xi++, tx++) {
+                    unsigned char val = image_data[width * yi + xi];
+                    if (val != 0xff) {
+                        vircr[bwidth * ty + tx] = val;
                     }
                 }
-            } else {            /* can use memcpy without transparency */
-                for (yi = fromminy, ty = fromminy + yy; yi <= frommaxy; yi++, ty++)
-                    memcpy(&vircr[bwidth * ty + fromminx + xx], &image_data[width * yi + fromminx], frommaxx - fromminx + 1);
             }
+        } else {            /* can use memcpy without transparency */
+            for (yi = fromminy, ty = fromminy + yy; yi <= frommaxy; yi++, ty++)
+                memcpy(&vircr[bwidth * ty + fromminx + xx], &image_data[width * yi + fromminx], frommaxx - fromminx + 1);
         }
-    }
-
-    if (!draw_with_vircr_mode) {
-        clip.x = rx;
-        clip.y = ry;
-        clip.w = rx2 - rx + 1;
-        clip.h = ry2 - ry + 1;
-        pos.x = xx;
-        pos.y = yy;
-        if (pixel_multiplier > 1) {
-            clip.x *= pixel_multiplier;
-            clip.y *= pixel_multiplier;
-            clip.w *= pixel_multiplier;
-            clip.h *= pixel_multiplier;
-            pos.x *= pixel_multiplier;
-            pos.y *= pixel_multiplier;
-        }
-        SDL_SetClipRect(video_state.surface, &clip);
-        if (SDL_BlitSurface(sdlsurface, NULL, video_state.surface, &pos) != 0) {
-            fprintf(stderr, "SDL_BlitSurface: %s\n", SDL_GetError());
-            exit(1);
-        }
-        SDL_SetClipRect(video_state.surface, NULL);
     }
 }
 
@@ -393,17 +283,12 @@ Bitmap::Bitmap(int x1, int y1, int xl, int yl, Bitmap * source_image) {
 
     name = source_image->name;
     hastransparency = source_image->hastransparency;
-    sdlsurface = NULL;
-    refresh_sdlsurface();
-    all_bitmaps_add(this);
 }
 
 /* Create a new Bitmap from the contents of vircr at (x,y) to (x+w,y+h) */
 Bitmap::Bitmap(int x, int y, int w, int h) {
     int vircrw = (current_mode == VGA_MODE) ? 320 : 800;
     int fromy, toy;
-
-    assert(update_vircr_mode);  /* otherwise vircr may not be valid */
 
     width = w;
     height = h;
@@ -415,9 +300,6 @@ Bitmap::Bitmap(int x, int y, int w, int h) {
 
     name = "from_vircr";
     hastransparency = 0;
-    sdlsurface = NULL;
-    refresh_sdlsurface();
-    all_bitmaps_add(this);
 }
 
 void Bitmap::blit_to_bitmap(Bitmap * to, int xx, int yy) {
@@ -441,8 +323,6 @@ void Bitmap::blit_to_bitmap(Bitmap * to, int xx, int yy) {
 
             to_point[laskx + xx + (lasky + yy) * kokox] = image_data[laskx + lasky * width];
         }
-
-    to->refresh_sdlsurface();
 }
 
 Bitmap *rotate_bitmap(Bitmap * picture, int degrees) {
@@ -479,7 +359,6 @@ Bitmap *rotate_bitmap(Bitmap * picture, int degrees) {
         }
     free(temp_data);
 
-    picture2->refresh_sdlsurface();
     return picture2;
 }
 

@@ -94,8 +94,6 @@ void partial_fade(void) {
     int hit_value, temp_hit_value;
     int c, c2, c3, temp;
 
-    assert(update_vircr_mode);
-
     next_color[0] = 0;
 
     for (c = 1; c < 256; c++) {
