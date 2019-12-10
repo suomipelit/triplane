@@ -642,6 +642,8 @@ int solo_player_menu(void) {
 
     }
 
+    hiiri_to(75, 100);
+
     while (flag == 0) {
         if (kbhit() && getch() == SDLK_ESCAPE) {
             flag = 2;
