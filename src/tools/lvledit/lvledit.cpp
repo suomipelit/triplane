@@ -444,16 +444,16 @@ void edit_level(void) {
                 if (active == -1 || active == 99)
                     break;
 
-                if (leveldata.struct_x[active + 1]);
-                active++;
+                if (leveldata.struct_x[active + 1])
+                    active++;
                 break;
 
             case SDLK_MINUS:
                 if (active < 1)
                     break;
 
-                if (leveldata.struct_x[active - 1]);
-                active--;
+                if (leveldata.struct_x[active - 1])
+                    active--;
                 break;
             default:
                 if ((ch >= SDLK_1) && (ch <= SDLK_4)) {

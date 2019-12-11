@@ -31,7 +31,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#if !defined(_MSC_VER)
 #include <unistd.h>
+#endif
 
 /* Dummy relics from DOS age. */
 void gotoxy(int x, int y) {
@@ -64,7 +66,7 @@ void talleta_paletti() {
 
 
 void pakit(int dx, int dy, char inputfile[], char picturename[]) {
-    FILE *in, *out;
+    FILE *out;
     long int xx, yy;
     short int x, y;
     char inf[FILENAME_MAX], outf[FILENAME_MAX];
@@ -72,8 +74,6 @@ void pakit(int dx, int dy, char inputfile[], char picturename[]) {
     unsigned int lippu, lask, lask2, lask3;
     unsigned char *pointteri, *pointteri2;
     char kuvan_nimi[7];
-    //int prossa,vprossa;
-    double p;
     long int koko;
     int debug = 0;
 
@@ -123,7 +123,7 @@ void pakit(int dx, int dy, char inputfile[], char picturename[]) {
                 gotoxy(60, wherey());
                 printf("Match found\n");
             }
-            for (lask3 = lask; ((*(pointteri + lask3) == *(pointteri + lask)) && (lask3 < (koko - 1)) && (lask3 - lask) < (255 - RAJA)); lask3++);
+            for (lask3 = lask; ((*(pointteri + lask3) == *(pointteri + lask)) && (lask3 < (koko - 1u)) && (lask3 - lask) < (255 - RAJA)); lask3++);
 
             if ((lask3 - lask) >= 2) {
                 vali = RAJA;
@@ -160,7 +160,7 @@ void pakit(int dx, int dy, char inputfile[], char picturename[]) {
                 }
                 lask++;
                 lask2++;
-                if (lask >= (int) koko) {
+                if (lask >= (unsigned int) koko) {
                     lippu = 0;
                     gotoxy(60, wherey());
                     if (debug)
@@ -186,7 +186,7 @@ void pakit(int dx, int dy, char inputfile[], char picturename[]) {
             }
             lask++;
             lask2++;
-            if (lask >= (int) koko) {
+            if (lask >= (unsigned int) koko) {
                 lask += 2;
                 lippu = 0;
                 gotoxy(60, wherey());
@@ -268,12 +268,9 @@ int main(int argc, char *argv[]) {
     char infile[FILENAME_MAX], outfile[FILENAME_MAX];
     char dxs[5], dys[5];
     int dx, dy;
-    char ch;
     short int leveys, korkeus;
     int laskx, lasky, lask;
     char stringi1[FILENAME_MAX], stringi2[FILENAME_MAX];
-
-    FILE *out;
 
     printf("\nPcx2pgd v. 1.14 For Wsystem 2.0 (c) 1996 Dodekaedron Software Creations, Inc.\n");
     printf("    This program is registered to Dodekaedron Squad. All rights reserved.\n\n");
