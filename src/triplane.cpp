@@ -3625,6 +3625,10 @@ int main(int argc, char *argv[]) {
 
     load_config();
 
+    if (config.fullscreen) {
+        wantfullscreen = 1;
+    }
+
     loading_text("Starting parameter handling.");
     handle_parameters();
 

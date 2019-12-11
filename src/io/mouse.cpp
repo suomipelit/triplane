@@ -33,11 +33,30 @@ void hiiri_to(int x, int y) {
     SDL_WarpMouseInWindow(video_state.window, x, y);
 }
 
+namespace
+{
+void limit(int *x, int *y) {
+    const int x_max = (current_mode == SVGA_MODE) ? 800 : 320;
+    const int y_max = (current_mode == SVGA_MODE) ? 600 : 200;
+
+    if (*x > x_max) {
+        hiiri_to(x_max, *y);
+        *x = x_max;
+    } else if (*y > y_max) {
+        hiiri_to(*x, y_max);
+        *y = y_max;
+    }
+}
+}
+
 void koords(int *x, int *y, int *n1, int *n2) {
     Uint8 ret;
 
     SDL_PumpEvents();
     ret = SDL_GetMouseState(x, y);
+
+    if (!ret) limit(x, y);
+
     *n1 = !!(ret & SDL_BUTTON(1));
     *n2 = !!(ret & SDL_BUTTON(3));
 }

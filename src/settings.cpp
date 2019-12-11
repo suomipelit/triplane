@@ -419,6 +419,7 @@ void swap_config_endianes(void) {
     config.flames = SDL_SwapLE32(config.flames);
     config.structure_smoke = SDL_SwapLE32(config.structure_smoke);
     config.svga = SDL_SwapLE32(config.svga);
+    config.fullscreen = SDL_SwapLE32(config.fullscreen);
 
     // Audio
     config.sound_on = SDL_SwapLE32(config.sound_on);
@@ -474,6 +475,7 @@ void load_config(void) {
     config.flames = 1;
     config.structure_smoke = 0;
     config.svga = 1;
+    config.fullscreen = 0;
 
     // Audio
     config.sound_on = 1;

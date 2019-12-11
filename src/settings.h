@@ -126,6 +126,7 @@ struct configuration {
     int32_t flames;
     int32_t structure_smoke;
     int32_t svga;
+    int32_t fullscreen;
 
     // Audio
     int32_t sound_on;

@@ -35,6 +35,8 @@
 #define SOUNDCARD_SB   2
 #define SOUNDCARD_SDL  3
 
+void set_fullscreen(int fullscreen);
+
 int kbhit(void);
 int getch(void);
 
