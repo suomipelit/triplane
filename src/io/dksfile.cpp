@@ -31,7 +31,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #if defined(_MSC_VER)
-#define __attribute__(x)
+#include "util/msvc.h"
 #else
 #include <unistd.h>
 #endif

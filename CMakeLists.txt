@@ -16,18 +16,18 @@ endif()
 # Dependencies
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/cmake-modules/FindSDL2.cmake")
     file(DOWNLOAD "https://github.com/tcbrindle/sdl2-cmake-scripts/raw/master/FindSDL2.cmake"
-	"${CMAKE_BINARY_DIR}/cmake-modules/FindSDL2.cmake")
+        "${CMAKE_BINARY_DIR}/cmake-modules/FindSDL2.cmake")
 endif()
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/cmake-modules/FindSDL2_mixer.cmake")
     file(DOWNLOAD "https://github.com/tcbrindle/sdl2-cmake-scripts/raw/master/FindSDL2_mixer.cmake"
-	"${CMAKE_BINARY_DIR}/cmake-modules/FindSDL2_mixer.cmake")
+        "${CMAKE_BINARY_DIR}/cmake-modules/FindSDL2_mixer.cmake")
 endif()
 
 find_package(SDL2 REQUIRED)
 find_package(SDL2_mixer REQUIRED)
 
 # Compiler flags
-if (WIN32)
+if (MSVC)
     add_compile_options(/MP /MT /WX /wd4996)
 else()
     # Warnings to be fixed
@@ -35,10 +35,6 @@ else()
 endif()
 
 # Common variables
-set(COMMON_INC ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${SDL2_INCLUDE_DIR}
-    ${SDL2_MIXER_INCLUDE_DIRS})
-
 set(COMMON_DEFINITIONS
     TRIPLANE_DATA=\"${TRIPLANE_DATA}\"
     TRIPLANE_VERSION=\"${PROJECT_VERSION}\"
@@ -48,21 +44,38 @@ set(COMMON_DEFINITIONS
 # Common library
 add_library(common STATIC
     src/gfx/bitmap.cpp
+    src/gfx/bitmap.h
     src/gfx/font.cpp
+    src/gfx/font.h
     src/gfx/gfx.cpp
+    src/gfx/gfx.h
     src/io/dksfile.cpp
+    src/io/dksfile.h
     src/io/mouse.cpp
+    src/io/mouse.h
     src/io/sdl_compat.cpp
+    src/io/sdl_compat.h
     src/io/timing.cpp
+    src/io/timing.h
     src/io/video.cpp
+    src/io/video.h
     src/util/random.cpp
-    src/util/wutil.cpp)
+    src/util/random.h
+    src/util/wutil.cpp
+    src/util/wutil.h)
+
+if (MSVC)
+    target_sources(common PRIVATE
+        src/util/msvc.h)
+endif()
 
 target_compile_definitions(common PRIVATE
     ${COMMON_DEFINITIONS})
 
 target_include_directories(common SYSTEM PUBLIC
-    ${COMMON_INC})
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${SDL2_MIXER_INCLUDE_DIR}
+    ${SDL2_INCLUDE_DIR})
 
 target_link_libraries(common
     ${SDL2_LIBRARY}
@@ -85,33 +98,68 @@ add_custom_target(generate-dks
 # Triplane executable
 add_executable(${PROJECT_NAME}
     src/gfx/extra.cpp
+    src/gfx/extra.h
     src/gfx/fades.cpp
+    src/gfx/fades.h
     src/io/joystick.cpp
+    src/io/joystick.h
     src/io/sound.cpp
+    src/io/sound.h
     src/menus/tripmenu.cpp
+    src/menus/tripmenu.h
     src/settings.cpp
+    src/settings.h
     src/triplane.cpp
+    src/triplane.h
     src/world/fobjects.cpp
+    src/world/fobjects.h
     src/world/plane.cpp
+    src/world/plane.h
     src/world/terrain.cpp
+    src/world/terrain.h
     src/world/tmexept.cpp
+    src/world/tmexept.h
     src/world/tripai.cpp
+    src/world/tripai.h
     src/world/tripaudio.cpp
+    src/world/tripaudio.h
     src/world/tripmis.cpp)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     ${COMMON_DEFINITIONS})
 
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
-    ${COMMON_INC})
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(${PROJECT_NAME}
     common)
 
 add_dependencies(${PROJECT_NAME} generate-dks)
 
-if (WIN32)
+if (MSVC)
     target_link_libraries(${PROJECT_NAME} winmm.lib)
 else()
     target_link_libraries(${PROJECT_NAME} m)
 endif()
+
+# Level editor
+add_executable(lvledit
+    src/tools/lvledit/lvledit.cpp)
+
+target_link_libraries(lvledit
+    common
+    ${SDL2_LIBRARY})
+
+target_include_directories(lvledit SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${SDL2_INCLUDE_DIR})
+
+# Image tools
+add_executable(pgdview
+    src/tools/pgdview/pgdview.cpp)
+
+target_link_libraries(pgdview
+    common)
+
+add_executable(pcx2pgd
+    src/tools/pcx2pgd/pcx2pgd.cpp)

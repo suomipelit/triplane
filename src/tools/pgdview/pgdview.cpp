@@ -32,6 +32,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#if defined(_MSC_VER)
+#include "util/msvc.h"
+#endif
+
 #define MAX_ENTRIES 8192
 
 /* XXXX */
