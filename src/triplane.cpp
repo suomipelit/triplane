@@ -453,6 +453,13 @@ char struct_names[NUMBER_OF_STRUCT_NAMES * 2][7] = {
     "AUT3", "DBIR3"
 };
 
+//\\\\ Special
+
+#if defined(WIN32) && defined(NDEBUG)
+// Hide console for Release builds
+#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+#endif
+
 //\\\\ Functions
 
 static void record_random_swap_endianess(void) {
