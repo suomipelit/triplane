@@ -2,6 +2,8 @@
 
 ## Intro
 
+![Triplane GIF](https://github.com/suomipelit/suomipelit.github.io/blob/master/gifs/triplane.gif)
+
 Triplane Classic is a side-scrolling dogfighting game featuring solo
 missions and multiplayer mode with up to four players. It is a port of
 the original Triplane Turmoil game for DOS and aims to match the
