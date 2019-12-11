@@ -362,7 +362,7 @@ void load_roster(void) {
             struct rosteri_header hdr;
             int ret;
 
-            ret = fread(&hdr, sizeof(hdr), 1, faili);
+            ret = (int)fread(&hdr, sizeof(hdr), 1, faili);
             if (ret != 1) {
                 printf("failed to read roster.dta header\n");
                 exit(1);

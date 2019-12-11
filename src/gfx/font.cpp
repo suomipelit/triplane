@@ -138,7 +138,7 @@ int Font::scanf(int x, int y, char *str, int max_len) {
 
     tausta_roska = new Bitmap(x, y, (width + 1) * (max_len + 1), height);
 
-    kohta = strlen(str);
+    kohta = (int)strlen(str);
 
     ch = 0;
 
