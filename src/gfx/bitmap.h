@@ -31,7 +31,6 @@ class Bitmap {
     int16_t width, height;
     int external_image_data;    // boolean: is image_data owned by this instance
     int hastransparency;
-    SDL_Surface *sdlsurface;
 
   public:
       Bitmap(const char *image_name, int transparent = 1);
@@ -44,10 +43,8 @@ class Bitmap {
     void blit_fullscreen(void);
     void blit_to_bitmap(Bitmap * to, int xx, int yy);
     unsigned char *info(int *width = NULL, int *height = NULL);
-    void refresh_sdlsurface();
 };
 
-void all_bitmaps_refresh(void);
 Bitmap *rotate_bitmap(Bitmap * picture, int degrees);
 int bitmap_exists(const char *name);
 

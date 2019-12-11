@@ -36,16 +36,11 @@ void putpix(int x, int y, unsigned char c, int x1, int y1, int x2, int y2) {
         return;
     if (y > y2)
         return;
-    if (update_vircr_mode) {
-        if (current_mode == VGA_MODE) {
-            vircr[x + (y << 8) + (y << 6)] = c;
-        } else {
-            vircr[x + y * 800] = c;
-        }
+    if (current_mode == VGA_MODE) {
+        vircr[x + (y << 8) + (y << 6)] = c;
+    } else {
+        vircr[x + y * 800] = c;
     }
-
-    if (!draw_with_vircr_mode)
-        fillrect(x, y, 1, 1, c);
 }
 
 void draw_line(int x1, int y1, int x2, int y2, unsigned char vari) {
@@ -80,13 +75,8 @@ void boxi(int x1, int y1, int x2, int y2, unsigned char vari) {
 void fill_vircr(int x1, int y1, int x2, int y2, unsigned char vari) {
     int lasky;
 
-    if (update_vircr_mode) {
-        for (lasky = y1; lasky <= y2; lasky++)
-            memset(&vircr[x1 + lasky * 320], vari, x2 - x1 + 1);
-    }
-
-    if (!draw_with_vircr_mode)
-        fillrect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, vari);
+    for (lasky = y1; lasky <= y2; lasky++)
+        memset(&vircr[x1 + lasky * 320], vari, x2 - x1 + 1);
 }
 
 void tyhjaa_vircr(void) {

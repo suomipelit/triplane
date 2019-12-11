@@ -35,10 +35,7 @@ struct naytto ruutu;
 
 int current_mode = VGA_MODE;
 unsigned char *vircr;
-int update_vircr_mode = 1;
-int draw_with_vircr_mode = 1;
-int pixel_multiplier = 1;       /* current pixel multiplier */
-int pixel_multiplier_vga = 1, pixel_multiplier_svga = 1;
+unsigned int window_multiplier_vga = 2, window_multiplier_svga = 1;
 int wantfullscreen = 0;
 
 SDL_Color curpal[256];
@@ -67,21 +64,10 @@ void setpal_range(const char pal[][3], int firstcolor, int n, int reverse) {
             from++;
     }
 
-    // SP-TODO
-    if (draw_with_vircr_mode) {
-        SDL_SetPaletteColors(video_state.surface->format->palette, cc, firstcolor, n);
-    } else {
-        SDL_SetPaletteColors(video_state.surface->format->palette, cc, firstcolor, n);
-    }
+    SDL_SetPaletteColors(video_state.surface->format->palette, cc, firstcolor, n);
+
     memcpy(&curpal[firstcolor], cc, n * sizeof(SDL_Color));
     wfree(cc);
-}
-
-static Uint32 getcolor(unsigned char c) {
-    if (video_state.haverealpalette)
-        return c;
-    else
-        return SDL_MapRGB(video_state.surface->format, curpal[c].r, curpal[c].g, curpal[c].b);
 }
 
 void fillrect(int x, int y, int w, int h, int c) {
@@ -90,74 +76,10 @@ void fillrect(int x, int y, int w, int h, int c) {
     r.y = y;
     r.w = w;
     r.h = h;
-    if (pixel_multiplier > 1) {
-        r.x *= pixel_multiplier;
-        r.y *= pixel_multiplier;
-        r.w *= pixel_multiplier;
-        r.h *= pixel_multiplier;
-    }
-    SDL_FillRect(video_state.surface, &r, getcolor(c));
+    SDL_FillRect(video_state.surface, &r, c);
 }
 
 void do_all(int do_retrace) {
-    if (draw_with_vircr_mode) {
-        if (pixel_multiplier > 1) {
-            int i, j, k;
-            int w = (current_mode == VGA_MODE) ? 320 : 800;
-            int h = (current_mode == VGA_MODE) ? 200 : 600;
-            uint8_t *in = vircr, *out = (uint8_t *) video_state.surface->pixels;
-            /* optimized versions using 32-bit and 16-bit writes when possible */
-            if (pixel_multiplier == 4 && sizeof(char *) >= 4) { /* word size >= 4 */
-                uint32_t cccc;
-                for (j = 0; j < h * pixel_multiplier; j += pixel_multiplier) {
-                    for (i = 0; i < w * pixel_multiplier; i += pixel_multiplier) {
-                        cccc = *in | (*in << 8) | (*in << 16) | (*in << 24);
-                        in++;
-                        for (k = 0; k < pixel_multiplier; k++) {
-                            *(uint32_t *) (&out[(j + k) * (w * pixel_multiplier) + i]) = cccc;
-                        }
-                    }
-                }
-            } else if (pixel_multiplier == 3) {
-                uint16_t cc, c;
-                for (j = 0; j < h * pixel_multiplier; j += pixel_multiplier) {
-                    for (i = 0; i < w * pixel_multiplier; i += pixel_multiplier) {
-                        c = *in++;
-                        cc = c | (c << 8);
-                        for (k = 0; k < pixel_multiplier; k++) {
-                            *(uint16_t *) (&out[(j + k) * (w * pixel_multiplier) + i]) = cc;
-                            out[(j + k) * (w * pixel_multiplier) + i + 2] = (uint8_t)c;
-                        }
-                    }
-                }
-            } else if (pixel_multiplier == 2) {
-                uint16_t cc;
-                for (j = 0; j < h * pixel_multiplier; j += pixel_multiplier) {
-                    for (i = 0; i < w * pixel_multiplier; i += pixel_multiplier) {
-                        cc = *in | (*in << 8);
-                        in++;
-                        for (k = 0; k < pixel_multiplier; k++) {
-                            *(uint16_t *) (&out[(j + k) * (w * pixel_multiplier) + i]) = cc;
-                        }
-                    }
-                }
-            } else {            /* unoptimized version */
-                int l;
-                uint8_t c;
-                for (j = 0; j < h * pixel_multiplier; j += pixel_multiplier) {
-                    for (i = 0; i < w * pixel_multiplier; i += pixel_multiplier) {
-                        c = *in++;
-                        for (k = 0; k < pixel_multiplier; k++) {
-                            for (l = 0; l < pixel_multiplier; l++) {
-                                out[(j + k) * (w * pixel_multiplier) + (i + l)] = c;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /* Blit 8-bit surface to 32-bit surface */
     SDL_BlitSurface(video_state.surface, NULL, video_state.displaySurface, NULL);
 
@@ -198,10 +120,6 @@ void init_video(void) {
         video_state.init_done = 1;
 
         SDL_ShowCursor(SDL_DISABLE);
-
-        if (!draw_with_vircr_mode) {
-            vircr = (unsigned char *) walloc(800 * 600);
-        }
     }
 }
 
@@ -243,25 +161,23 @@ static int init_mode(int new_mode, const char *paletname) {
 
     init_video();
 
-    //if (!draw_with_vircr_mode) SP-TODO
     mode_flags = SDL_WINDOW_OPENGL;
 
     if (wantfullscreen)
         mode_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
-    if (draw_with_vircr_mode && pixel_multiplier > 1)
-        wfree(vircr);
-
-    pixel_multiplier = (new_mode == SVGA_MODE) ? pixel_multiplier_svga : pixel_multiplier_vga;
-
     if (video_state.window) {
         deinit();
     }
 
+    const unsigned int window_multiplier = new_mode == VGA_MODE ?
+        window_multiplier_vga :
+        window_multiplier_svga;
+
     video_state.window = SDL_CreateWindow("Triplane Classic",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        w, h,
+        w * window_multiplier, h * window_multiplier,
         mode_flags);
 
     assert(video_state.window);
@@ -290,16 +206,7 @@ static int init_mode(int new_mode, const char *paletname) {
 
     assert(video_state.texture);
 
-    if (draw_with_vircr_mode) {
-        if (pixel_multiplier > 1) {
-            vircr = (uint8_t *) walloc(w * h);
-        } else {
-            vircr = (uint8_t *) video_state.surface->pixels;
-        }
-    }
-    /* else vircr is preallocated in init_video */
-
-    video_state.haverealpalette = true; // SP-TODO
+    vircr = (uint8_t *) video_state.surface->pixels;
 
     dksopen(paletname);
 
@@ -311,7 +218,6 @@ static int init_mode(int new_mode, const char *paletname) {
     dksclose();
 
     setpal_range(ruutu.paletti, 0, 256);
-    all_bitmaps_refresh();
 
     current_mode = new_mode;
     return 1;

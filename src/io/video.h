@@ -41,7 +41,6 @@ struct video_state_t {
     SDL_Renderer *renderer;
     SDL_Window *window;
     int init_done;
-    int haverealpalette;
 };
 extern struct video_state_t video_state;
 extern SDL_Color curpal[256];
@@ -59,10 +58,7 @@ void deinit_video(void);
 extern unsigned char *vircr;
 extern Bitmap *standard_background;
 extern int current_mode;
-extern int pixel_multiplier;
-extern int update_vircr_mode;
-extern int draw_with_vircr_mode;
-extern int pixel_multiplier_vga, pixel_multiplier_svga;
+extern unsigned int window_multiplier_vga, window_multiplier_svga;
 extern int wantfullscreen;
 
 #endif

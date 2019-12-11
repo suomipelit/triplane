@@ -1655,9 +1655,6 @@ void main_engine(void) {
     //// Record
     setwrandom(7);
 
-    if (!draw_with_vircr_mode)
-        update_vircr_mode = 0;
-
     while (flag) {
         update_key_state();
 
@@ -1862,9 +1859,6 @@ void main_engine(void) {
             mission_duration++;
         }
     }
-
-    if (!draw_with_vircr_mode)
-        update_vircr_mode = 1;
 
     wait_relase();
     mission_re_fly = -1;
@@ -3558,20 +3552,24 @@ void handle_parameters(void) {
         loading_text("Sounds disabled.");
     }
 
+    if (findparameter("-1")) {
+        window_multiplier_vga = 1;
+    }
+
     if (findparameter("-2")) {
-        pixel_multiplier_vga = 2;
+        window_multiplier_vga = 2;
     }
 
     if (findparameter("-3")) {
-        pixel_multiplier_vga = 3;
+        window_multiplier_vga = 3;
     }
 
     if (findparameter("-4")) {
-        pixel_multiplier_vga = 4;
+        window_multiplier_vga = 4;
     }
 
     if (findparameter("-2svga")) {
-        pixel_multiplier_svga = 2;
+        window_multiplier_svga = 2;
     }
 
     if (findparameter("-fullscreen")) {
@@ -3580,10 +3578,6 @@ void handle_parameters(void) {
 
     if (findparameter("-nofullscreen")) {
         wantfullscreen = 0;
-    }
-
-    if (findparameter("-sdldraw")) {
-        draw_with_vircr_mode = 0;
     }
 }
 
@@ -3605,12 +3599,12 @@ int main(int argc, char *argv[]) {
         printf("This program is free software; you may redistribute it under the terms of\n");
         printf("the GNU General Public License version 3 or (at your option) a later version.\n");
         printf("This program has absolutely no warranty.\n\n");
-        printf("-help         Help on options\n");
-        printf("-fullscreen   Start game in fullscreen mode\n");
-        printf("-nofullscreen Start game in windowed mode (default)\n");
-        printf("-nosound      Start game without sounds\n");
-        //printf("-2, -3, -4    Zoom the 320x200-pixel game window 2x, 3x or 4x\n"); SP-TODO: Not supported
-        //printf("-2svga        Zoom the 800x600-pixel window 2x to produce 1600x1200-pixel window\n"); SP-TODO: Not supported
+        printf("-help           Help on options\n");
+        printf("-fullscreen     Start game in fullscreen mode\n");
+        printf("-nofullscreen   Start game in windowed mode (default)\n");
+        printf("-nosound        Start game without sounds\n");
+        printf("-1, -2, -3, -4  Zoom the 320x200-pixel game window 1x, 2x (default), 3x or 4x\n");
+        printf("-2svga          Zoom the 800x600-pixel window 2x to produce 1600x1200-pixel window\n");
         printf("\n");
         exit(0);
     }
@@ -3635,7 +3629,6 @@ int main(int argc, char *argv[]) {
     handle_parameters();
 
     /* needed to find joysticks */
-    /* needs draw_with_vircr_mode parameter from handle_parameters() */
     init_video();
 
     loading_text("Looking for joystick");
