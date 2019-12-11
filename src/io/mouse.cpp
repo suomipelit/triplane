@@ -55,7 +55,7 @@ void koords(int *x, int *y, int *n1, int *n2) {
     SDL_PumpEvents();
     ret = SDL_GetMouseState(x, y);
 
-    if (!ret) limit(x, y);
+    if (wantfullscreen && !ret) limit(x, y);
 
     *n1 = !!(ret & SDL_BUTTON(1));
     *n2 = !!(ret & SDL_BUTTON(3));
