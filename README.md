@@ -46,6 +46,8 @@ are not confused.
 
 ## Compiling from source
 
+[![Build Status](https://api.travis-ci.org/suomipelit/triplane.svg?branch=master)](https://travis-ci.org/suomipelit/triplane)
+
 ### Requirements
 
 - CMake
