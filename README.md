@@ -71,6 +71,17 @@ cmake -DSDL2_PATH="C:\\<path>\\SDL2-2.0.9" -DSDL2_MIXER_PATH="C:\\<path>\\SDL2_m
 ```
 which produces project files for 32-bit target. For 64-bit target, use e.g. `cmake -G "Visual Studio 15 2017 Win64"`.
 
+## Releases
+
+### v1.0.8-SP1 - 2019-12-14
+
+- Update to SDL2
+- Add fullcreen option to GUI
+- Toggle fullcreen with ALT + Enter
+- Fix split transition
+- Fix start-up problem if no player was created
+- Minor maintenance
+
 ## Contact
 
 Teemu J. Takanen <tjt@users.sourceforge.net>
