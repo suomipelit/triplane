@@ -1194,7 +1194,7 @@ void options_menu(void) {
         frost->printf(73, 43, "%s", selitykset[optimode]);
 
         switch (optimode) {
-        case 0:
+        case 0: {
             frost->printf(73, 60, "Shots visible?");
             frost->printf(73, 70, "AAA shots visible?");
             frost->printf(73, 80, "AA-MG shots visible?");
@@ -1202,14 +1202,24 @@ void options_menu(void) {
             frost->printf(73, 100, "Structure flames?");
             frost->printf(73, 110, "Use 800x600 window\nin multiplayergame?");
             frost->printf(73, 130, "Structure smoke?");
+#if !defined (__EMSCRIPTEN__)
             frost->printf(73, 140, "Fullscreen?");
+#endif
 
             for (l = 0; l < 6; l++) {
                 boxi(214, 60 + l * 10, 221, 68 + l * 10, 0);
                 boxi(224, 60 + l * 10, 231, 68 + l * 10, 0);
             }
 
-            for (l = 0; l < 2; l++) {
+            const size_t boxes =
+#if !defined (__EMSCRIPTEN__)
+              2
+#else
+              1
+#endif
+              ;
+
+            for (l = 0; l < boxes; l++) {
                 boxi(214, 130 + l * 10, 221, 138 + l * 10, 0);
                 boxi(224, 130 + l * 10, 231, 138 + l * 10, 0);
             }
@@ -1249,13 +1259,15 @@ void options_menu(void) {
             else
                 wrong->blit(225, 110);
 
+#if !defined (__EMSCRIPTEN__)
             if (config.fullscreen)
                 right->blit(215, 140);
             else
                 wrong->blit(225, 140);
+#endif
 
             break;
-
+        }
         case 1:
 
             frost->printf(73, 60, "Sounds on?");
@@ -1511,10 +1523,12 @@ void options_menu(void) {
 
                 }
 
+#if !defined (__EMSCRIPTEN__)
                 if (y >= 140 && y <= 148) {
                     // fullscreen
                     menuselect = 35;
                 }
+#endif
             }
 
         if (optimode == 1)
