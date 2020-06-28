@@ -71,6 +71,33 @@ cmake -DSDL2_PATH="C:\\<path>\\SDL2-2.0.9" -DSDL2_MIXER_PATH="C:\\<path>\\SDL2_m
 ```
 which produces project files for 32-bit target. For 64-bit target, use e.g. `cmake -G "Visual Studio 15 2017 Win64"`.
 
+#### Browser build
+
+Emscripten JavaScript/WebAssembly build for browsers is also
+supported. It has limitations like missing sound and persistent data
+storing, and the port is considered as beta. You can try it live
+[here](https://suomipelit.github.io/triplane-web/).
+
+`fokker.dks` main data file must be built separately or borrowed from
+release package. Paste it to binary directory before progressing
+further.
+
+``` shell
+cmake -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=<path to>/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake ..
+cmake --build .
+```
+
+For best performance it is recommended to build with
+`-DCMAKE_BUILD_TYPE=Release`.
+
+It might be easiest to run local HTTP server with Python
+
+``` shell
+python -m http.server
+```
+
+and opening the game with supported browser at `http://localhost:8000/triplane.html`.
+
 ## Releases
 
 ### v1.0.8-SP1 - 2019-12-14
