@@ -650,8 +650,10 @@ int small_warning(const char *message) {
         }
     }
 
-    while (n1 || n2)
+    while (n1 || n2) {
         koords(&x, &y, &n1, &n2);
+        nopeuskontrolli();
+    }
 
     delete warnkuva;
 
