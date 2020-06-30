@@ -55,7 +55,7 @@ set(COMMON_DEFINITIONS
 
 if (NOT EMCC)
     # EMCC's Mixer does not support used sound format, disable for now
-    set(COMMON_DEFINITIONS
+    list(APPEND COMMON_DEFINITIONS
         HAVE_SDL_MIXER=1)
 endif()
 
