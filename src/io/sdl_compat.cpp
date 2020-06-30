@@ -115,7 +115,7 @@ int getch(void) {
                 return s;
             }
         }
-        SDL_Delay(1);
+        nopeuskontrolli();
     }
 }
 
