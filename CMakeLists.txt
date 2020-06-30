@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(triplane VERSION 1.0.8)
-set(TRIPLANE_SP_VERSION "SP1")
+set(TRIPLANE_SP_VERSION "SP2-SNAPSHOT")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR}/cmake-modules)
