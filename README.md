@@ -100,6 +100,14 @@ and opening the game with supported browser at `http://localhost:8000/triplane.h
 
 ## Releases
 
+### **WIP** - v1.0.8-SP2 - **Date TBA**
+
+- Adjust window scaling with Alt + (KeyPad) Plus/Minus
+- Fix cursor position in window mode
+- Fix aspect ratio in full screen mode
+- Fix mouse sensitivity in full screen mode
+- Fix few busy loops
+
 ### v1.0.8-SP1 - 2019-12-14
 
 - Update to SDL2
