@@ -116,7 +116,8 @@ unsigned int get_window_multiplier(void) {
         int window_w, window_h;
         SDL_GetRendererOutputSize(video_state.renderer, &window_w, &window_h);
 
-        return window_h / get_screen_height();
+        const unsigned int scale = window_h / get_screen_height();
+        return scale > 0 ? scale : 1;
     }
 
     return (current_mode == SVGA_MODE) ?
