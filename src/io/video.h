@@ -55,6 +55,9 @@ void init_vga(const char *paletname);
 void init_video(void);
 void deinit_video(void);
 void refresh_rendering(void);
+void increase_scaling(void);
+void decrease_scaling(void);
+unsigned int get_window_multiplier(void);
 
 extern unsigned char *vircr;
 extern Bitmap *standard_background;

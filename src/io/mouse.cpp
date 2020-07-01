@@ -29,16 +29,8 @@
 #include "io/video.h"
 #include <SDL.h>
 
-extern int current_mode;
-extern unsigned int window_multiplier_vga, window_multiplier_svga;
-
 namespace
 {
-unsigned int getMultiplier() {
-    return (current_mode == SVGA_MODE) ?
-        window_multiplier_svga : window_multiplier_vga;
-}
-
 void limit(int* x, int* y) {
     const int x_max = (current_mode == SVGA_MODE) ? 800 : 320;
     const int y_max = (current_mode == SVGA_MODE) ? 600 : 200;
@@ -54,7 +46,7 @@ void limit(int* x, int* y) {
 }
 
 void hiiri_to(int x, int y) {
-    const unsigned int multiplier = getMultiplier();
+    const unsigned int multiplier = get_window_multiplier();
     SDL_WarpMouseInWindow(video_state.window, x * multiplier, y * multiplier);
 }
 
@@ -64,7 +56,7 @@ void koords(int *x, int *y, int *n1, int *n2) {
     SDL_PumpEvents();
     ret = SDL_GetMouseState(x, y);
 
-    const unsigned int multiplier = getMultiplier();
+    const unsigned int multiplier = get_window_multiplier();
     *x /= multiplier;
     *y /= multiplier;
 

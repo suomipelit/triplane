@@ -103,6 +103,50 @@ void refresh_rendering() {
     }
 }
 
+unsigned int get_window_multiplier(void) {
+    return (current_mode == SVGA_MODE) ?
+        window_multiplier_svga : window_multiplier_vga;
+}
+
+static void reset_window_size(void) {
+    const int scr_x_size = (current_mode == SVGA_MODE) ? 800 : 320;
+    const int scr_y_size = (current_mode == SVGA_MODE) ? 600 : 200;
+    const unsigned int windowMultiplier = get_window_multiplier();
+
+    SDL_SetWindowSize(video_state.window,
+        scr_x_size * windowMultiplier, scr_y_size * windowMultiplier);
+
+    refresh_rendering();
+}
+
+void increase_scaling(void) {
+    if (current_mode == SVGA_MODE) {
+        if (window_multiplier_svga < 2) {
+            ++window_multiplier_svga;
+            reset_window_size();
+        }
+    } else {
+        if (window_multiplier_vga < 4) {
+            ++window_multiplier_vga;
+            reset_window_size();
+        }
+    }
+}
+
+void decrease_scaling(void) {
+    if (current_mode == SVGA_MODE) {
+        if (window_multiplier_svga > 1) {
+            --window_multiplier_svga;
+            reset_window_size();
+        }
+    } else {
+        if (window_multiplier_vga > 1) {
+            --window_multiplier_vga;
+            reset_window_size();
+        }
+    }
+}
+
 void do_all(int do_retrace) {
     /* Blit 8-bit surface to 32-bit surface */
     SDL_BlitSurface(video_state.surface, NULL, video_state.displaySurface, NULL);

@@ -55,9 +55,22 @@ void toggle_fullscreen() {
 }
 
 int handle_special_keys(const SDL_KeyboardEvent *key) {
-    if (key->keysym.scancode == SDL_SCANCODE_RETURN && key->keysym.mod & KMOD_LALT) {
-        toggle_fullscreen();
-        return 1;
+    if (key->keysym.mod & KMOD_LALT) {
+        switch (key->keysym.scancode) {
+        case SDL_SCANCODE_RETURN:
+            toggle_fullscreen();
+            return 1;
+        case SDL_SCANCODE_KP_PLUS:
+        case SDL_SCANCODE_EQUALS:
+            increase_scaling();
+            return 1;
+        case SDL_SCANCODE_KP_MINUS:
+        case SDL_SCANCODE_MINUS:
+            decrease_scaling();
+            return 1;
+        default:
+            break;
+        }
     }
 
     return 0;
