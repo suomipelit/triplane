@@ -54,6 +54,7 @@ int init_vesa(const char *paletname);
 void init_vga(const char *paletname);
 void init_video(void);
 void deinit_video(void);
+void refresh_rendering(void);
 
 extern unsigned char *vircr;
 extern Bitmap *standard_background;

@@ -37,6 +37,7 @@ int current_mode = VGA_MODE;
 unsigned char *vircr;
 unsigned int window_multiplier_vga = 2, window_multiplier_svga = 1;
 int wantfullscreen = 0;
+SDL_Rect render_dest_rect;
 
 SDL_Color curpal[256];
 
@@ -79,6 +80,29 @@ void fillrect(int x, int y, int w, int h, int c) {
     SDL_FillRect(video_state.surface, &r, c);
 }
 
+void refresh_rendering() {
+    int window_w, window_h;
+    int scr_x_size = (current_mode == SVGA_MODE) ? 800 : 320;
+    int scr_y_size = (current_mode == SVGA_MODE) ? 600 : 200;
+    const double aspect = static_cast<float>(scr_x_size) / scr_y_size;
+
+    SDL_GetRendererOutputSize(video_state.renderer, &window_w, &window_h);
+
+    if (1.0 * window_w / window_h <= aspect) {
+        const int h = static_cast<int>(window_w / aspect);
+        render_dest_rect.x = 0;
+        render_dest_rect.y = (window_h - h) / 2;
+        render_dest_rect.w = window_w;
+        render_dest_rect.h = h;
+    } else {
+        const int w = static_cast<int>(window_h * aspect);
+        render_dest_rect.x = (window_w - w) / 2;
+        render_dest_rect.y = 0;
+        render_dest_rect.w = w;
+        render_dest_rect.h = window_h;
+    }
+}
+
 void do_all(int do_retrace) {
     /* Blit 8-bit surface to 32-bit surface */
     SDL_BlitSurface(video_state.surface, NULL, video_state.displaySurface, NULL);
@@ -98,7 +122,7 @@ void do_all(int do_retrace) {
     SDL_UnlockTexture(video_state.texture);
 
     /* Render texture to display */
-    SDL_RenderCopy(video_state.renderer, video_state.texture, NULL, NULL);
+    SDL_RenderCopy(video_state.renderer, video_state.texture, NULL, &render_dest_rect);
     SDL_RenderPresent(video_state.renderer);
 }
 
@@ -220,6 +244,9 @@ static int init_mode(int new_mode, const char *paletname) {
     setpal_range(ruutu.paletti, 0, 256);
 
     current_mode = new_mode;
+
+    refresh_rendering();
+
     return 1;
 }
 

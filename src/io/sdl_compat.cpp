@@ -67,6 +67,7 @@ int handle_special_keys(const SDL_KeyboardEvent *key) {
 void set_fullscreen(int fullscreen) {
     wantfullscreen = fullscreen;
     SDL_SetWindowFullscreen(video_state.window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    refresh_rendering();
 }
 
 int kbhit(void) {
