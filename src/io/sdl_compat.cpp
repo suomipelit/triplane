@@ -115,6 +115,7 @@ int getch(void) {
                 return s;
             }
         }
+        nopeuskontrolli();
     }
 }
 
