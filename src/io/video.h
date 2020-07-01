@@ -58,6 +58,8 @@ void refresh_rendering(void);
 void increase_scaling(void);
 void decrease_scaling(void);
 unsigned int get_window_multiplier(void);
+int get_screen_width(void);
+int get_screen_height(void);
 
 extern unsigned char *vircr;
 extern Bitmap *standard_background;

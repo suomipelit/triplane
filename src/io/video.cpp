@@ -80,10 +80,18 @@ void fillrect(int x, int y, int w, int h, int c) {
     SDL_FillRect(video_state.surface, &r, c);
 }
 
+int get_screen_width(void) {
+    return (current_mode == SVGA_MODE) ? 800 : 320;
+}
+
+int get_screen_height(void) {
+    return (current_mode == SVGA_MODE) ? 600 : 200;
+}
+
 void refresh_rendering() {
     int window_w, window_h;
-    int scr_x_size = (current_mode == SVGA_MODE) ? 800 : 320;
-    int scr_y_size = (current_mode == SVGA_MODE) ? 600 : 200;
+    const int scr_x_size = get_screen_width();
+    const int scr_y_size = get_screen_height();
     const double aspect = static_cast<float>(scr_x_size) / scr_y_size;
 
     SDL_GetRendererOutputSize(video_state.renderer, &window_w, &window_h);
@@ -104,13 +112,20 @@ void refresh_rendering() {
 }
 
 unsigned int get_window_multiplier(void) {
+    if (wantfullscreen) {
+        int window_w, window_h;
+        SDL_GetRendererOutputSize(video_state.renderer, &window_w, &window_h);
+
+        return window_h / get_screen_height();
+    }
+
     return (current_mode == SVGA_MODE) ?
         window_multiplier_svga : window_multiplier_vga;
 }
 
 static void reset_window_size(void) {
-    const int scr_x_size = (current_mode == SVGA_MODE) ? 800 : 320;
-    const int scr_y_size = (current_mode == SVGA_MODE) ? 600 : 200;
+    const int scr_x_size = get_screen_width();
+    const int scr_y_size = get_screen_height();
     const unsigned int windowMultiplier = get_window_multiplier();
 
     SDL_SetWindowSize(video_state.window,

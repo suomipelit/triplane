@@ -32,8 +32,8 @@
 namespace
 {
 void limit(int* x, int* y) {
-    const int x_max = (current_mode == SVGA_MODE) ? 800 : 320;
-    const int y_max = (current_mode == SVGA_MODE) ? 600 : 200;
+    const int x_max = get_screen_width();
+    const int y_max = get_screen_height();
 
     if (*x > x_max) {
         hiiri_to(x_max, *y);
