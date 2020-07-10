@@ -38,6 +38,10 @@
 #include "io/video.h"
 #include <string.h>
 
+#if defined (__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+
 typedef struct
 {
     SDL_Keycode keycode;
@@ -129,7 +133,9 @@ int getch(void) {
                 return s;
             }
         }
-        nopeuskontrolli();
+#if defined (__EMSCRIPTEN__)
+        emscripten_sleep(0);
+#endif
     }
 }
 
