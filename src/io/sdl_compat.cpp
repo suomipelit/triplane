@@ -89,24 +89,29 @@ void set_fullscreen(int fullscreen) {
 
 int kbhit(void) {
     SDL_Event e;
-    int ret;
 
     nopeuskontrolli();
 
-    ret = SDL_PeepEvents(&e, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
-    if (ret) {
+    while (SDL_PollEvent(&e)) {
         switch (e.type)
         {
+        case SDL_WINDOWEVENT:
+            if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
+                refresh_rendering();
+            }
+            break;
         case SDL_KEYUP:
+            SDL_PushEvent(&e);
             return 1;
         case SDL_QUIT:
             exit(0);
             break;
         case SDL_KEYDOWN:
-            handle_special_keys(&e.key);
-            /* FALLTHROUGH */
+            if (!handle_special_keys(&e.key)) {
+                SDL_PushEvent(&e);
+            }
+            return 0;
         default:
-            SDL_PollEvent(&e);
             break;
         }
     }
@@ -118,7 +123,13 @@ int getch(void) {
 
     for (;;) {
         if (SDL_PollEvent(&e)) {
-            if (e.type == SDL_KEYUP) {
+            switch (e.type)
+            {
+            case SDL_KEYDOWN:
+                handle_special_keys(&e.key);
+                break;
+            case SDL_KEYUP:
+            {
                 int s, m;
                 s = e.key.keysym.sym;
                 m = e.key.keysym.mod;
@@ -131,6 +142,9 @@ int getch(void) {
                     }
                 }
                 return s;
+            }
+            default:
+                break;
             }
         }
 #if defined (__EMSCRIPTEN__)
