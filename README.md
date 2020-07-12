@@ -1,5 +1,9 @@
 # Triplane Classic - a side-scrolling dogfighting game
 
+[![Build Status](https://api.travis-ci.org/suomipelit/triplane.svg?branch=master)](https://travis-ci.org/suomipelit/triplane)
+[![Downloads](https://img.shields.io/github/downloads/suomipelit/triplane/total.svg)](https://github.com/suomipelit/triplane/releases)
+[![Latest release](http://img.shields.io/github/release/suomipelit/triplane.svg)](https://github.com/suomipelit/triplane/releases/latest)
+
 ## Intro
 
 ![Triplane GIF](https://github.com/suomipelit/suomipelit.github.io/blob/master/gifs/triplane.gif)
@@ -45,8 +49,6 @@ encourage you to pick a new name for your modified game so that users
 are not confused.
 
 ## Compiling from source
-
-[![Build Status](https://api.travis-ci.org/suomipelit/triplane.svg?branch=master)](https://travis-ci.org/suomipelit/triplane)
 
 ### Requirements
 
@@ -108,7 +110,7 @@ and opening the game with supported browser at `http://localhost:8000/triplane.h
 - Fix mouse sensitivity in full screen mode
 - Fix few busy loops
 
-### v1.0.8-SP1 - 2019-12-14
+### [v1.0.8-SP1](https://github.com/suomipelit/triplane/releases/tag/v1.0.8-sp1) - 2019-12-14
 
 - Update to SDL2
 - Add fullcreen option to GUI
