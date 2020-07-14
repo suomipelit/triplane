@@ -357,6 +357,24 @@ void sdl_free_sample(sb_sample * sample) {
 
 sb_mod_file *sdl_load_mod_file(const char *name) {
 #ifdef HAVE_SDL_MIXER
+#ifdef __EMSCRIPTEN__
+    // At the time of writing, Emscripten's SDL_Mixer (SDL2) does not support
+    // Mod files. Separate OGG files are bundled as a workaround.
+    char path_buffer[32];
+    sb_mod_file *mod;
+
+    snprintf(path_buffer, sizeof(path_buffer), "web_music/%s.ogg", name);
+
+    mod = (sb_mod_file *) walloc(sizeof(sb_mod_file));
+    mod->music = Mix_LoadMUS(path_buffer);
+
+    if (!mod->music) {
+      fprintf(stderr, "sdl_load_mod_file: %s\n", Mix_GetError());
+      exit(1);
+    }
+
+    return mod;
+#else
     int len, ret;
     uint8_t *p;
     sb_mod_file *mod;
@@ -388,6 +406,7 @@ sb_mod_file *sdl_load_mod_file(const char *name) {
     free(p);
 
     return mod;
+#endif
 #else
     return NULL;
 #endif

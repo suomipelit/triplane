@@ -76,8 +76,8 @@ which produces project files for 32-bit target. For 64-bit target, use e.g. `cma
 #### Browser build
 
 Emscripten JavaScript/WebAssembly build for browsers is also
-supported. It has limitations like missing music and persistent data
-storing, and the port is considered as beta. You can try it live
+supported. It has limitations like persistent data storing, and the
+port is considered as beta. You can try it live
 [here](https://suomipelit.github.io/triplane-web/).
 
 `fokker.dks` main data file must be built separately or borrowed from
