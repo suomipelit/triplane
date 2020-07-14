@@ -1151,7 +1151,7 @@ void roster_menu(void) {
 
     wait_mouse_relase();
 
-
+    save_roster();
 }
 
 void options_menu(void) {
@@ -1920,6 +1920,7 @@ void options_menu(void) {
 
     wait_mouse_relase();
 
+    save_config();
 }
 
 void transfer_menu(void) {
@@ -2015,6 +2016,8 @@ void transfer_menu(void) {
 
 
     wait_mouse_relase();
+
+    save_config();
 }
 
 static void joystick_setup(int joy, Bitmap * controlme) {
@@ -2315,6 +2318,7 @@ void controls_menu(void) {
 
     wait_mouse_relase();
 
+    save_config();
 }
 
 
@@ -2621,6 +2625,7 @@ void assign_menu(void) {
 
     wait_mouse_relase();
 
+    save_config();
 }
 
 
