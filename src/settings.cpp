@@ -61,6 +61,9 @@ struct configuration config;
  *
  */
 static void find_settings_directory(char *dir) {
+#ifdef __EMSCRIPTEN__
+    strncpy(dir, "/persistent/", FILENAME_MAX - 1);
+#else
     char *home;
 
     home = getenv("TRIPLANE_HOME");
@@ -95,6 +98,7 @@ static void find_settings_directory(char *dir) {
     }
 
     strncpy(dir, "", FILENAME_MAX - 1);
+#endif
 }
 
 /*
@@ -252,6 +256,8 @@ void save_keyset(void) {
         fwrite(player_keys, sizeof(player_keys), 1, faili);
         fclose(faili);
         swap_keyset_endianes();
+
+        fs_flush();
     }
 }
 
@@ -401,6 +407,8 @@ void save_roster(void) {
     fwrite(&roster, sizeof(roster), 1, faili);
     fclose(faili);
     swap_roster_endianes();
+
+    fs_flush();
 }
 
 void swap_config_endianes(void) {
@@ -529,4 +537,6 @@ void save_config(void) {
     fwrite(&config, sizeof(config), 1, faili);
     fclose(faili);
     swap_config_endianes();
+
+    fs_flush();
 }

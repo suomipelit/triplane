@@ -42,7 +42,7 @@ elseif (EMCC)
     set(USE_FLAGS "-O3 -s ASYNCIFY -s USE_SDL=2 -s USE_SDL_MIXER=2 -s TOTAL_MEMORY=64MB --preload-file fokker.dks --preload-file ${MUSIC_DIR} --shell-file ${CMAKE_SOURCE_DIR}/src/web/shell.html")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${USE_FLAGS}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${USE_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${USE_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${USE_FLAGS} -lidbfs.js")
     set(CMAKE_EXECUTABLE_SUFFIX .html)
 else()
     # Warnings to be fixed

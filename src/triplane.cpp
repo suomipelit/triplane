@@ -3632,6 +3632,8 @@ int main(int argc, char *argv[]) {
     main_version = MAIN_VERSION;
     sub_version = SUB_VERSION;
 
+    fs_init();
+
     load_config();
 
     if (config.fullscreen) {
@@ -3822,6 +3824,8 @@ int main(int argc, char *argv[]) {
     clean_memory();
 
     deinit_video();
+
+    fs_deinit();
 
     return 0;
 }

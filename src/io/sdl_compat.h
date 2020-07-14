@@ -69,4 +69,8 @@ void sdl_free_mod_file(sb_mod_file * mod);
 void sdl_play_music(sb_mod_file * mod);
 void sdl_stop_music(void);
 
+void fs_init();
+void fs_deinit();
+void fs_flush();
+
 #endif

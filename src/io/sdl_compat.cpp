@@ -51,6 +51,11 @@ typedef struct
 
 namespace
 {
+#ifdef __EMSCRIPTEN__
+bool fs_mounted = false;
+bool fs_flushed = false;
+#endif
+
 const size_t MAX_NUMBER_OF_PRESSED_KEYS = 128;
 Key keys[MAX_NUMBER_OF_PRESSED_KEYS] = {{0}};
 
@@ -429,5 +434,61 @@ void sdl_play_music(sb_mod_file * mod) {
 void sdl_stop_music(void) {
 #ifdef HAVE_SDL_MIXER
     Mix_HaltMusic();
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+namespace
+{
+extern "C"
+{
+EMSCRIPTEN_KEEPALIVE
+void fs_mount_ready()
+{
+    fs_mounted = true;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void fs_flush_ready()
+{
+    fs_flushed = true;
+}
+}
+}
+#endif
+
+void fs_init() {
+#ifdef __EMSCRIPTEN__
+    EM_ASM(
+        FS.mkdir('/persistent');
+        FS.mount(IDBFS, {}, '/persistent');
+        FS.syncfs(true, function (err) {
+            ccall('fs_mount_ready', 'v');
+        });
+    );
+
+    while (!fs_mounted) SDL_Delay(1);
+#endif
+}
+
+void fs_deinit() {
+#ifdef __EMSCRIPTEN__
+    EM_ASM(
+        FS.unmount('/persistent');
+    );
+#endif
+}
+
+void fs_flush()
+{
+#ifdef __EMSCRIPTEN__
+    fs_flushed = false;
+    EM_ASM(
+        FS.syncfs(function (err) {
+            ccall('fs_flush_ready', 'v');
+        });
+    );
+
+    while (!fs_flushed) SDL_Delay(1);
 #endif
 }
