@@ -64,6 +64,7 @@ void toggle_fullscreen() {
 }
 
 int handle_special_keys(const SDL_KeyboardEvent *key) {
+#ifndef __EMSCRIPTEN__
     if (key->keysym.mod & KMOD_LALT) {
         switch (key->keysym.scancode) {
         case SDL_SCANCODE_RETURN:
@@ -81,6 +82,7 @@ int handle_special_keys(const SDL_KeyboardEvent *key) {
             break;
         }
     }
+#endif
 
     return 0;
 }
