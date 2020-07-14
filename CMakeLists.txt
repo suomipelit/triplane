@@ -37,7 +37,7 @@ if (MSVC)
     add_compile_options(/MP /MT /WX /wd4996)
 elseif (EMCC)
     # fokker.dks must be separately built or borrowed from elsewhere for EMCC builds - see README!
-    set(USE_FLAGS "-O3 -s ASYNCIFY -s USE_SDL=2 -s USE_SDL_MIXER=2 -s TOTAL_MEMORY=32MB --preload-file fokker.dks --shell-file ${CMAKE_SOURCE_DIR}/src/web/shell.html")
+    set(USE_FLAGS "-O3 -s ASYNCIFY -s USE_SDL=2 -s USE_SDL_MIXER=2 -s TOTAL_MEMORY=64MB --preload-file fokker.dks --shell-file ${CMAKE_SOURCE_DIR}/src/web/shell.html")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${USE_FLAGS}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${USE_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${USE_FLAGS}")
@@ -51,13 +51,8 @@ endif()
 set(COMMON_DEFINITIONS
     TRIPLANE_DATA=\"${TRIPLANE_DATA}\"
     TRIPLANE_VERSION=\"${PROJECT_VERSION}\"
-    TRIPLANE_SP_VERSION=\"${TRIPLANE_SP_VERSION}\")
-
-if (NOT EMCC)
-    # EMCC's Mixer does not support used sound format, disable for now
-    list(APPEND COMMON_DEFINITIONS
-        HAVE_SDL_MIXER=1)
-endif()
+    TRIPLANE_SP_VERSION=\"${TRIPLANE_SP_VERSION}\"
+    HAVE_SDL_MIXER=1)
 
 # Common library
 add_library(common STATIC

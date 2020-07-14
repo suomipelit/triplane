@@ -3676,7 +3676,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (is_there_sound) {
-        if (config.music_on) {
+        if (config.music_on && !findparameter("-nomusic")) {
             loading_text("Loading music.");
             load_music();
         }

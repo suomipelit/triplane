@@ -118,6 +118,7 @@
       var spinnerElement = document.getElementById('spinner');
 
       var Module = {
+        arguments: ['-nomusic'], // Emscripten's SDL_Mixer doesn't support MikMod - disable for now
         preRun: [],
         postRun: [],
         print: (function() {
