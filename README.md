@@ -8,6 +8,8 @@
 
 ![Triplane GIF](https://github.com/suomipelit/suomipelit.github.io/blob/master/gifs/triplane.gif)
 
+[**Try live browser version here!**](https://suomipelit.github.io/triplane-web/)
+
 Triplane Classic is a side-scrolling dogfighting game featuring solo
 missions and multiplayer mode with up to four players. It is a port of
 the original Triplane Turmoil game for DOS and aims to match the
@@ -76,7 +78,7 @@ which produces project files for 32-bit target. For 64-bit target, use e.g. `cma
 #### Browser build
 
 Emscripten JavaScript/WebAssembly build for browsers is also
-supported. Port is considered as beta. You can try it live
+supported. You can try it live
 [here](https://suomipelit.github.io/triplane-web/).
 
 `fokker.dks` main data file must be built separately or borrowed from
@@ -101,8 +103,9 @@ and opening the game with supported browser at `http://localhost:8000/triplane.h
 
 ## Releases
 
-### **WIP** - v1.0.8-SP2 - **Date TBA**
+### [v1.0.8-SP2](https://github.com/suomipelit/triplane/releases/tag/v1.0.8-sp2) - 2020-07-21
 
+- Web port
 - Adjust window scaling with Alt + (KeyPad) Plus/Minus
 - Fix cursor position in window mode
 - Fix aspect ratio in full screen mode
@@ -120,8 +123,10 @@ and opening the game with supported browser at `http://localhost:8000/triplane.h
 
 ## Contact
 
+[Suomipelit Slack](https://join.slack.com/t/suomipelit/shared_invite/enQtNDg1ODkwODU4MTE4LWExY2Q3Mjc0ODg3OTY3ZjlmYThkZDRlMDBjZWUwM2I4NWZlZTFkMWI4YjM1OTM1ODQ4NGQ1NGFiNjQ5MjY0NzM)
+
+### Original SDL port
+
 Teemu J. Takanen <tjt@users.sourceforge.net>
 
 Timo Juhani Lindfors <timo.lindfors@iki.fi>
-
-[Suomipelit Slack](https://join.slack.com/t/suomipelit/shared_invite/enQtNDg1ODkwODU4MTE4LWExY2Q3Mjc0ODg3OTY3ZjlmYThkZDRlMDBjZWUwM2I4NWZlZTFkMWI4YjM1OTM1ODQ4NGQ1NGFiNjQ5MjY0NzM)
