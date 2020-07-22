@@ -2990,7 +2990,7 @@ void credits_menu(void) {
         grid3->printf(205, 110, "Code & Project management:\nTeemu J. Takanen");
         grid3->printf(kohta2, 140, "Special Thanks:");
         grid3->printf(45, 160, "Mikko Kinnunen\nNiko Salminen\nPekka Pulli");
-        grid3->printf(205, 160, "Antti Lehtoranta\nJuha Rytk”nen\nJoonas Joensuu");
+        grid3->printf(205, 160, "Antti Lehtoranta\nJuha Rytk\x94nen\nJoonas Joensuu");
 
 
 
