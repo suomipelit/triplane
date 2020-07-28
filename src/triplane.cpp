@@ -3052,7 +3052,7 @@ void load_level(void) {
 
         }
     } else {
-        sprintf(levelname, parametrit[findparameter("-level")] + 6);
+        strcpy(levelname, parametrit[findparameter("-level")] + 6);
 
     }
 
