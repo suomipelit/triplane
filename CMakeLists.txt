@@ -9,7 +9,10 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-if(NOT DEFINED TRIPLANE_DATA)
+include(GNUInstallDirs)
+if (NOT WIN32 AND NOT EMCC AND NOT (${CMAKE_BUILD_TYPE} STREQUAL "Debug"))
+	set(TRIPLANE_DATA "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}")
+else()
     set(TRIPLANE_DATA ".")
 endif()
 
@@ -187,4 +190,9 @@ if (NOT EMCC)
 
     add_executable(pcx2pgd
         src/tools/pcx2pgd/pcx2pgd.cpp)
+
+    install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(FILES fokker.dks pkg/icon.png DESTINATION ${TRIPLANE_DATA})
+    install(FILES README.md COPYING DESTINATION ${CMAKE_INSTALL_DOCDIR})
+    install(FILES pkg/triplane.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 endif()
