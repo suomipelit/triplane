@@ -1,0 +1,65 @@
+#!/bin/bash
+
+RELEASE=buster
+BUILDDEPS=(cmake libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-net-dev)
+PKGNAME=triplane
+PKGVERSION=1.0.8+sp2
+PKGDEPS=(libsdl2-2.0-0 libsdl2-mixer-2.0-0)
+PKGDESC="The legendary 90s game Triplane Classic"
+PKGURL="https://github.com/suomipelit/triplane"
+
+function join_by {
+    local IFS="$1"
+    shift
+    echo "$*"
+}
+
+cat >build-in-docker.bash <<EOF
+set -euo pipefail
+
+echo "Installing fpm..."
+apt-get update
+apt-get -y install \
+    ruby \
+    ruby-dev \
+    rubygems \
+    build-essential
+gem install --no-ri --no-rdoc fpm
+
+echo "Installing build deps..."
+apt-get -y install ${BUILDDEPS[*]}
+
+echo "Building..."
+mkdir /build
+cp -ar /mnt/* /build
+cd /build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr .
+cmake --build .
+mkdir /dest
+make DESTDIR=/dest install
+
+echo "Packaging..."
+cd /dest
+fpm -s dir \
+    -t deb \
+    -n $PKGNAME \
+    -v $PKGVERSION \
+    --description "$PKGDESC" \
+    --url "$PKGURL" \
+    $(for dep in ${PKGDEPS[*]}; do echo -n "-d $dep "; done) \
+    .
+chown \$ORIGUID:\$ORIGGID *.deb
+cp -a *.deb /mnt
+
+echo "Done!"
+EOF
+
+docker run \
+    --rm \
+    -e ORIGUID="$(id -u)" \
+    -e ORIGGID="$(id -g)" \
+    -v "$(pwd):/mnt" \
+    debian:$RELEASE \
+    bash /mnt/build-in-docker.bash
+
+rm build-in-docker.bash
